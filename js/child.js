@@ -55,7 +55,7 @@ function showApp() {
   document.getElementById('setupScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
   render();
-  generateMyQR();
+  // QRはマイQRタブ表示時に生成（非表示だとcanvas描画が失敗するため）
 }
 
 // ========== 描画 ==========
