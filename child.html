@@ -16,15 +16,14 @@
   <!-- ========== セットアップ画面 ========== -->
   <div id="setupScreen" class="setup-screen" style="display:none;">
     <div class="logo" style="font-size:4rem;margin-bottom:16px;">⭐</div>
-    <h1 class="setup-title">なまえをおしえてね！</h1>
-    <p class="setup-subtitle">アバターをえらんで、なまえを入れよう</p>
+    <h1 class="setup-title">おてつだい手帳</h1>
+    <p class="setup-subtitle">おとうさん・おかあさんのQRをよみとって<br>登録しよう！</p>
 
-    <div class="avatar-picker" id="avatarPicker"></div>
+    <div id="setupScanArea" style="width:100%;max-width:300px;margin:16px auto;border-radius:16px;overflow:hidden;"></div>
+    <p id="setupStatus" style="color:var(--c-text-sub);font-size:0.85rem;margin-top:8px;"></p>
 
-    <input type="text" class="setup-input" id="setupName" placeholder="なまえ" maxlength="10">
-
-    <button class="btn btn-primary btn-block" style="margin-top:24px;max-width:280px;" onclick="completeSetup()">
-      はじめる！ 🚀
+    <button class="btn btn-primary btn-block" style="margin-top:16px;max-width:280px;" onclick="startSetupScan()">
+      📷 QRをよみとって登録
     </button>
   </div>
 
@@ -85,16 +84,6 @@
       <div id="fullHistory"></div>
     </main>
 
-    <!-- ========== タブ：マイQR ========== -->
-    <main class="main-content" id="tab-myqr" style="display:none;">
-      <section class="my-qr-section">
-        <h3>📱 わたしのQRコード</h3>
-        <p style="font-size:0.8rem;color:var(--c-text-sub);margin-bottom:16px;">おとうさん・おかあさんにこのQRをよんでもらおう</p>
-        <div class="qr-display" id="myQRDisplay"></div>
-        <p style="font-size:0.75rem;color:var(--c-text-sub);margin-top:12px;" id="myIdDisplay"></p>
-      </section>
-    </main>
-
     <!-- ========== タブ：設定 ========== -->
     <main class="main-content" id="tab-settings" style="display:none;">
       <h2 style="font-size:0.85rem;color:var(--c-text-sub);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:16px;">⚙️ 設定</h2>
@@ -130,9 +119,6 @@
       </button>
       <button class="tab-item" onclick="showTab('history')" id="tabHistory">
         <span class="tab-icon">📜</span> りれき
-      </button>
-      <button class="tab-item" onclick="showTab('myqr')" id="tabMyqr">
-        <span class="tab-icon">📱</span> マイQR
       </button>
       <button class="tab-item" onclick="showTab('settings')" id="tabSettings">
         <span class="tab-icon">⚙️</span> 設定

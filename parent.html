@@ -26,8 +26,8 @@
     <section class="children-section">
       <h2>👦 こどもたち</h2>
       <div id="childrenList"></div>
-      <button class="add-child-btn" onclick="openScanChildModal()">
-        ＋ こどもを追加（QRスキャン）
+      <button class="add-child-btn" onclick="openAddChildModal()">
+        ＋ こどもを追加
       </button>
     </section>
 
@@ -106,13 +106,31 @@
     </button>
   </nav>
 
-  <!-- ========== モーダル：子供QRスキャン ========== -->
-  <div class="modal-overlay" id="scanChildModal">
+  <!-- ========== モーダル：こども追加（登録QR表示） ========== -->
+  <div class="modal-overlay" id="addChildModal">
     <div class="modal">
-      <h2>📷 こどものQRをスキャン</h2>
-      <p style="font-size:0.85rem;color:var(--p-text-sub);margin-bottom:12px;">こどもの端末に表示されているQRコードを読み取ってください</p>
-      <div id="scanChildReader"></div>
-      <button class="btn btn-secondary btn-block" style="margin-top:12px;" onclick="closeScanChildModal()">キャンセル</button>
+      <!-- ステップ1: 名前入力 -->
+      <div id="addChildStep1">
+        <h2>👶 こどもを追加</h2>
+        <div style="margin-bottom:12px;">
+          <label class="settings-label">こどもの名前</label>
+          <input type="text" class="input" id="newChildName" placeholder="例：たろう" maxlength="10">
+        </div>
+        <div style="margin-bottom:16px;">
+          <label class="settings-label">アバター</label>
+          <div id="childAvatarPicker" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:8px;"></div>
+        </div>
+        <button class="btn btn-primary btn-block" onclick="generateChildRegQR()">登録QRを作成</button>
+        <button class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="closeAddChildModal()">キャンセル</button>
+      </div>
+      <!-- ステップ2: QR表示 -->
+      <div id="addChildStep2" style="display:none;">
+        <h2>📱 このQRをこどもに読み取ってもらおう</h2>
+        <p style="font-size:0.85rem;color:var(--p-text-sub);margin-bottom:8px;text-align:center;" id="addChildInfo"></p>
+        <div class="qr-display" id="childRegQRDisplay"></div>
+        <p style="font-size:0.8rem;color:var(--p-text-sub);text-align:center;margin:12px 0;">こどものアプリで「QRをよみとって登録」をタップしてね</p>
+        <button class="btn btn-primary btn-block" onclick="closeAddChildModal()">閉じる</button>
+      </div>
     </div>
   </div>
 
@@ -151,14 +169,13 @@
   <!-- ========== トースト ========== -->
   <div class="toast" id="toast"></div>
 
-  <!-- CDN Libraries (複数ソースでフォールバック) -->
+  <!-- CDN Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script>
     if (typeof QRCode === 'undefined') {
       document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>');
     }
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <!-- App Scripts -->
   <script src="js/crypto.js"></script>
   <script src="js/storage.js"></script>
