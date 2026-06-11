@@ -1,11 +1,14 @@
 // parent.js - 親アプリのメインロジック
 
+// ========== 定数 ==========
+const CHILD_AVATARS = ['🦁', '🐱', '🐶', '🐰', '🦊', '🐼', '🐸', '🐧', '🦄', '🐲', '🌟', '🚀'];
+
 // ========== 状態 ==========
 let parentData = null;
 let selectedChildId = null;
 let selectedChoreId = null;
 let currentAmount = 0;
-let childScanner = null;
+let selectedAvatar = CHILD_AVATARS[0];
 
 // ========== 初期化 ==========
 document.addEventListener('DOMContentLoaded', () => {
@@ -31,7 +34,7 @@ function renderChildren() {
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">👶</div>
-        <p>まだこどもが登録されていません<br>下のボタンからQRを読み取って追加しよう</p>
+        <p>まだこどもが登録されていません<br>下のボタンから追加しよう</p>
       </div>`;
     document.getElementById('choreSection').style.display = 'none';
     return;
@@ -66,7 +69,6 @@ function renderChores() {
 
 function renderHistory() {
   const container = document.getElementById('historyList');
-  // 全子供の送信履歴を統合して時系列逆順
   const allHistory = [];
   parentData.children.forEach(child => {
     child.sentHistory.forEach(h => {
@@ -99,7 +101,6 @@ function renderHistory() {
 function renderSettings() {
   document.getElementById('parentIdDisplay').textContent = parentData.parentId;
 
-  // 子供リスト
   const childList = document.getElementById('settingsChildrenList');
   if (parentData.children.length === 0) {
     childList.innerHTML = '<p style="color:var(--p-text-sub);font-size:0.9rem;">登録なし</p>';
@@ -114,7 +115,6 @@ function renderSettings() {
     `).join('');
   }
 
-  // お手伝いテンプレリスト
   const choreList = document.getElementById('settingsChoreList');
   const customs = parentData.customChores || [];
   if (customs.length === 0) {
@@ -141,7 +141,6 @@ function selectChild(childId) {
   document.getElementById('choreSectionTitle').textContent = `🧹 ${child.name}のおてつだいを選ぶ`;
   document.getElementById('amountSection').style.display = 'none';
   render();
-  // スクロール
   document.getElementById('choreSection').scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -181,12 +180,7 @@ async function generateRewardQR() {
   const newExpectedBalance = child.expectedBalance + currentAmount;
 
   const hash = await OteCrypto.createRewardHash(
-    parentData.parentId,
-    child.childId,
-    currentAmount,
-    timestamp,
-    seq,
-    parentData.secret
+    parentData.parentId, child.childId, currentAmount, timestamp, seq, parentData.secret
   );
 
   const qrData = {
@@ -202,34 +196,22 @@ async function generateRewardQR() {
     h: hash
   };
 
-  // 履歴に追加
   child.sentHistory.push({
-    chore: chore.name,
-    icon: chore.icon,
-    amount: currentAmount,
-    timestamp: timestamp,
-    seq: seq,
-    hash: hash
+    chore: chore.name, icon: chore.icon, amount: currentAmount,
+    timestamp: timestamp, seq: seq, hash: hash
   });
   child.expectedBalance = newExpectedBalance;
   Store.setParentData(parentData);
 
-  // モーダル表示
   document.getElementById('rewardSummary').innerHTML = `
     <div>${child.avatar} <span class="reward-child">${escHtml(child.name)}</span></div>
     <div style="margin-top:4px;">${chore.icon} ${escHtml(chore.name)}</div>
     <div class="reward-amount" style="margin-top:8px;">${currentAmount}円</div>
   `;
 
-  const modal = document.getElementById('rewardQRModal');
-  modal.classList.add('active');
+  document.getElementById('rewardQRModal').classList.add('active');
+  setTimeout(() => QR.generate('rewardQRDisplay', qrData, 200), 100);
 
-  // QR生成
-  setTimeout(() => {
-    QR.generate('rewardQRDisplay', qrData, 200);
-  }, 100);
-
-  // 状態リセット
   selectedChoreId = null;
   currentAmount = 0;
   document.getElementById('amountSection').style.display = 'none';
@@ -241,56 +223,85 @@ function closeRewardQRModal() {
   document.getElementById('rewardQRDisplay').innerHTML = '';
 }
 
-// ========== 子供QRスキャン ==========
-function openScanChildModal() {
-  document.getElementById('scanChildModal').classList.add('active');
-  setTimeout(async () => {
-    try {
-      childScanner = await QR.startScanner('scanChildReader', onChildScanned, (err) => {
-        showToast(err, 'error');
-        closeScanChildModal();
-      });
-    } catch (e) {
-      showToast('カメラの起動に失敗しました', 'error');
-      closeScanChildModal();
-    }
-  }, 300);
+// ========== こども追加（登録QR生成） ==========
+function openAddChildModal() {
+  selectedAvatar = CHILD_AVATARS[0];
+  document.getElementById('newChildName').value = '';
+  document.getElementById('addChildStep1').style.display = 'block';
+  document.getElementById('addChildStep2').style.display = 'none';
+
+  // アバターピッカー描画
+  const picker = document.getElementById('childAvatarPicker');
+  picker.innerHTML = CHILD_AVATARS.map(a => `
+    <div style="font-size:1.8rem;width:48px;height:48px;display:flex;align-items:center;justify-content:center;
+                background:${a === selectedAvatar ? 'var(--p-primary-light)' : 'var(--p-surface)'};
+                border:2px solid ${a === selectedAvatar ? 'var(--p-primary)' : 'var(--p-border)'};
+                border-radius:50%;cursor:pointer;"
+         onclick="pickChildAvatar('${a}', this)">${a}</div>
+  `).join('');
+
+  document.getElementById('addChildModal').classList.add('active');
 }
 
-function closeScanChildModal() {
-  document.getElementById('scanChildModal').classList.remove('active');
-  QR.stopScanner(childScanner);
-  childScanner = null;
-  document.getElementById('scanChildReader').innerHTML = '';
+function pickChildAvatar(avatar, el) {
+  selectedAvatar = avatar;
+  // 全アバターの選択状態をリセットして再描画
+  const picker = document.getElementById('childAvatarPicker');
+  picker.querySelectorAll('div').forEach((d, i) => {
+    const a = CHILD_AVATARS[i];
+    d.style.background = a === avatar ? 'var(--p-primary-light)' : 'var(--p-surface)';
+    d.style.borderColor = a === avatar ? 'var(--p-primary)' : 'var(--p-border)';
+  });
 }
 
-function onChildScanned(data) {
-  closeScanChildModal();
-
-  if (data.t !== 'reg') {
-    showToast('これは子ども登録QRではありません', 'error');
+function generateChildRegQR() {
+  const name = document.getElementById('newChildName').value.trim();
+  if (!name) {
+    showToast('名前を入力してください', 'error');
     return;
   }
 
-  // 重複チェック
-  if (parentData.children.some(c => c.childId === data.cid)) {
-    showToast(`${data.n}はすでに登録されています`, 'error');
-    return;
-  }
+  // ユニークなchildIdを生成（既存IDと重複チェック）
+  let childId;
+  let attempts = 0;
+  do {
+    childId = OteCrypto.generateId('c');
+    attempts++;
+  } while (parentData.children.some(c => c.childId === childId) && attempts < 100);
 
-  // 子供を追加
-  parentData.children.push({
-    childId: data.cid,
-    name: data.n,
-    avatar: data.a || '👦',
+  // 登録データを親側に即座に追加
+  const newChild = {
+    childId: childId,
+    name: name,
+    avatar: selectedAvatar,
     registeredAt: new Date().toISOString(),
     sentHistory: [],
     expectedBalance: 0
-  });
+  };
+  parentData.children.push(newChild);
   Store.setParentData(parentData);
 
-  showToast(`${data.a || '👦'} ${data.n}を追加しました！`, 'success');
+  // 登録QRデータ（子側がスキャンする）
+  const qrData = {
+    t: 'reg',
+    pid: parentData.parentId,
+    cid: childId,
+    n: name,
+    a: selectedAvatar
+  };
+
+  // ステップ2へ切替
+  document.getElementById('addChildStep1').style.display = 'none';
+  document.getElementById('addChildStep2').style.display = 'block';
+  document.getElementById('addChildInfo').textContent = `${selectedAvatar} ${name}の登録QR`;
+
+  setTimeout(() => QR.generate('childRegQRDisplay', qrData, 200), 100);
   render();
+}
+
+function closeAddChildModal() {
+  document.getElementById('addChildModal').classList.remove('active');
+  document.getElementById('childRegQRDisplay').innerHTML = '';
 }
 
 // ========== カスタムお手伝い追加 ==========
@@ -316,12 +327,8 @@ function addCustomChore() {
   }
 
   if (!parentData.customChores) parentData.customChores = [];
-
   parentData.customChores.push({
-    id: 'c_' + Date.now(),
-    name: name,
-    icon: icon,
-    amount: Math.max(10, amount)
+    id: 'c_' + Date.now(), name: name, icon: icon, amount: Math.max(10, amount)
   });
   Store.setParentData(parentData);
   closeAddChoreModal();
@@ -384,9 +391,5 @@ function escHtml(str) {
 
 function formatDate(ts) {
   const d = new Date(ts);
-  const m = d.getMonth() + 1;
-  const day = d.getDate();
-  const h = d.getHours().toString().padStart(2, '0');
-  const min = d.getMinutes().toString().padStart(2, '0');
-  return `${m}/${day} ${h}:${min}`;
+  return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
 }

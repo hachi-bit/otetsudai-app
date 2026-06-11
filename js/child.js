@@ -1,11 +1,8 @@
 // child.js - 子アプリのメインロジック
 
-// ========== 定数 ==========
-const AVATARS = ['🦁', '🐱', '🐶', '🐰', '🦊', '🐼', '🐸', '🐧', '🦄', '🐲', '🌟', '🚀'];
-
 // ========== 状態 ==========
 let childData = null;
-let selectedAvatar = AVATARS[0];
+let setupScanner = null;
 let rewardScanner = null;
 
 // ========== 初期化 ==========
@@ -13,40 +10,57 @@ document.addEventListener('DOMContentLoaded', () => {
   childData = Store.getChildData();
 
   if (!childData) {
-    // 初回セットアップ表示
     showSetup();
   } else {
     showApp();
   }
 });
 
-// ========== セットアップ ==========
+// ========== セットアップ（親のQRをスキャンして登録） ==========
 function showSetup() {
   document.getElementById('setupScreen').style.display = 'flex';
   document.getElementById('appScreen').style.display = 'none';
-
-  const picker = document.getElementById('avatarPicker');
-  picker.innerHTML = AVATARS.map(a => `
-    <div class="avatar-option ${a === selectedAvatar ? 'selected' : ''}"
-         onclick="pickAvatar('${a}', this)">${a}</div>
-  `).join('');
 }
 
-function pickAvatar(avatar, el) {
-  selectedAvatar = avatar;
-  document.querySelectorAll('.avatar-option').forEach(e => e.classList.remove('selected'));
-  el.classList.add('selected');
+async function startSetupScan() {
+  const statusEl = document.getElementById('setupStatus');
+  statusEl.textContent = 'カメラを起動しています...';
+
+  try {
+    setupScanner = await QR.startScanner('setupScanArea', onSetupScanned, (err) => {
+      statusEl.textContent = err;
+    });
+  } catch (e) {
+    statusEl.textContent = 'カメラの起動に失敗しました。カメラの許可を確認してください。';
+  }
 }
 
-function completeSetup() {
-  const name = document.getElementById('setupName').value.trim();
-  if (!name) {
-    showToast('なまえを入れてね！', 'error');
+function onSetupScanned(data) {
+  QR.stopScanner(setupScanner);
+  setupScanner = null;
+
+  if (data.t !== 'reg') {
+    document.getElementById('setupStatus').textContent = 'これは登録用QRではありません。もう一度やりなおしてね。';
     return;
   }
 
+  // 親のQRから情報を取得して子アプリをセットアップ
   Store.setRole('child');
-  childData = Store.initChild(name, selectedAvatar);
+  childData = {
+    role: 'child',
+    childId: data.cid,
+    name: data.n,
+    avatar: data.a || '⭐',
+    balance: 0,
+    totalEarned: 0,
+    level: 1,
+    history: [],
+    parentId: data.pid,
+    scannedSeqs: [],
+  };
+  Store.setChildData(childData);
+
+  showToast(`${data.a || '⭐'} ${data.n} とうろくかんりょう！`, 'success');
   showApp();
 }
 
@@ -55,7 +69,6 @@ function showApp() {
   document.getElementById('setupScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
   render();
-  // QRはマイQRタブ表示時に生成（非表示だとcanvas描画が失敗するため）
 }
 
 // ========== 描画 ==========
@@ -88,7 +101,6 @@ function render() {
     document.getElementById('expNext').textContent = 'MAX!';
   }
 
-  // 最近のりれき（最新5件）
   renderRecentHistory();
 
   // 設定
@@ -147,21 +159,6 @@ function renderFullHistory() {
   `).join('')}</div>`;
 }
 
-// ========== マイQR生成 ==========
-function generateMyQR() {
-  if (!childData) return;
-  const qrData = {
-    t: 'reg',
-    cid: childData.childId,
-    n: childData.name,
-    a: childData.avatar
-  };
-  setTimeout(() => {
-    QR.generate('myQRDisplay', qrData, 180);
-    document.getElementById('myIdDisplay').textContent = `ID: ${childData.childId}`;
-  }, 200);
-}
-
 // ========== 報酬QRスキャン ==========
 function openScanRewardModal() {
   document.getElementById('scanRewardModal').classList.add('active');
@@ -188,7 +185,6 @@ function closeScanRewardModal() {
 async function onRewardScanned(data) {
   closeScanRewardModal();
 
-  // バリデーション
   if (data.t !== 'rwd') {
     showToast('ごほうびQRではありません', 'error');
     return;
@@ -206,44 +202,30 @@ async function onRewardScanned(data) {
     return;
   }
 
-  // 親IDの記録（初回接続）
-  if (!childData.parentId) {
-    childData.parentId = data.pid;
-  }
-
   // 残高加算
   const prevLevel = Store.calcLevel(childData.totalEarned);
 
   childData.balance += data.amt;
   childData.totalEarned += data.amt;
   childData.history.push({
-    chore: data.ch,
-    icon: data.ci || '⭐',
-    amount: data.amt,
-    timestamp: data.ts,
-    seq: data.seq,
-    parentId: data.pid
+    chore: data.ch, icon: data.ci || '⭐', amount: data.amt,
+    timestamp: data.ts, seq: data.seq, parentId: data.pid
   });
 
-  // 重複防止に記録
   if (!childData.scannedSeqs) childData.scannedSeqs = [];
   childData.scannedSeqs.push(seqKey);
-
   Store.setChildData(childData);
 
   // レベルアップチェック
   const newLevel = Store.calcLevel(childData.totalEarned);
   const didLevelUp = newLevel.level > prevLevel.level;
 
-  // 成功モーダル表示
+  // 成功モーダル
   document.getElementById('receiveChore').textContent = `${data.ci || '⭐'} ${data.ch}`;
   document.getElementById('receiveAmount').textContent = `+${data.amt}円`;
   document.getElementById('receiveSuccessModal').classList.add('active');
 
-  // コインエフェクト
   setTimeout(() => Confetti.burst(document.body), 200);
-
-  // レベルアップ演出
   if (didLevelUp) {
     setTimeout(() => Confetti.levelUp(document.body, newLevel), 1200);
   }
@@ -257,16 +239,13 @@ function closeReceiveSuccess() {
 
 // ========== タブ切り替え ==========
 function showTab(tab) {
-  ['home', 'history', 'myqr', 'settings'].forEach(t => {
+  ['home', 'history', 'settings'].forEach(t => {
     const el = document.getElementById('tab-' + t);
     if (el) el.style.display = (t === tab) ? 'block' : 'none';
-
     const tabBtn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
     if (tabBtn) tabBtn.classList.toggle('active', t === tab);
   });
-
   if (tab === 'history') renderFullHistory();
-  if (tab === 'myqr') generateMyQR();
 }
 
 // ========== データリセット ==========
@@ -293,9 +272,5 @@ function escHtml(str) {
 
 function formatDate(ts) {
   const d = new Date(ts);
-  const m = d.getMonth() + 1;
-  const day = d.getDate();
-  const h = d.getHours().toString().padStart(2, '0');
-  const min = d.getMinutes().toString().padStart(2, '0');
-  return `${m}/${day} ${h}:${min}`;
+  return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
 }
