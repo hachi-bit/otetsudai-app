@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>おてつだい手帳 - 親アプリ</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#f8f6ff">
+  <link rel="icon" href="icons/icon-192.png">
+  <link href="https://fonts.googleapis.com/css2?family=Rounded+Mplus+1c:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/common.css">
+  <link rel="stylesheet" href="css/parent.css">
+</head>
+<body>
+
+  <!-- ========== ヘッダー ========== -->
+  <header class="app-header">
+    <h1>📒 おてつだい手帳</h1>
+    <button class="header-btn" onclick="showTab('settings')" title="設定">⚙️</button>
+  </header>
+
+  <!-- ========== メイン：ホーム ========== -->
+  <main class="main-content" id="tab-home">
+
+    <!-- 子供一覧 -->
+    <section class="children-section">
+      <h2>👦 こどもたち</h2>
+      <div id="childrenList"></div>
+      <button class="add-child-btn" onclick="openScanChildModal()">
+        ＋ こどもを追加（QRスキャン）
+      </button>
+    </section>
+
+    <!-- お手伝い選択（子供選択後に表示） -->
+    <section id="choreSection" style="display:none;">
+      <h2 class="section-title" id="choreSectionTitle">🧹 おてつだいを選ぶ</h2>
+      <div class="chore-grid" id="choreGrid"></div>
+      <button class="add-chore-btn" onclick="openAddChoreModal()">＋ カスタム項目を追加</button>
+
+      <!-- 金額設定 -->
+      <div class="amount-section" id="amountSection" style="display:none;">
+        <h2 class="section-title">💰 金額</h2>
+        <div class="amount-display">
+          <span class="amount-value" id="amountValue">0</span>
+          <span class="amount-unit">円</span>
+        </div>
+        <div class="amount-btns">
+          <button class="amount-btn" onclick="adjustAmount(-50)">-50</button>
+          <button class="amount-btn" onclick="adjustAmount(-10)">-10</button>
+          <button class="amount-btn" onclick="adjustAmount(10)">+10</button>
+          <button class="amount-btn" onclick="adjustAmount(50)">+50</button>
+          <button class="amount-btn" onclick="adjustAmount(100)">+100</button>
+        </div>
+        <button class="btn btn-primary btn-block" style="margin-top:20px;" onclick="generateRewardQR()" id="sendBtn">
+          🎁 ごほうびQRを作成
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- ========== メイン：履歴 ========== -->
+  <main class="main-content" id="tab-history" style="display:none;">
+    <h2 class="section-title">📋 送信りれき</h2>
+    <div id="historyList"></div>
+  </main>
+
+  <!-- ========== メイン：設定 ========== -->
+  <main class="main-content" id="tab-settings" style="display:none;">
+    <h2 class="section-title">⚙️ 設定</h2>
+
+    <div class="settings-section">
+      <label class="settings-label">親ID</label>
+      <div class="card" style="font-size:0.8rem;word-break:break-all;" id="parentIdDisplay"></div>
+    </div>
+
+    <div class="settings-section">
+      <label class="settings-label">登録済みのこども</label>
+      <div id="settingsChildrenList"></div>
+    </div>
+
+    <div class="settings-section">
+      <label class="settings-label">お手伝いテンプレート管理</label>
+      <div id="settingsChoreList"></div>
+      <button class="btn btn-secondary btn-block" style="margin-top:12px;" onclick="openAddChoreModal()">＋ テンプレートを追加</button>
+    </div>
+
+    <div class="settings-section" style="margin-top:40px;">
+      <button class="btn btn-danger btn-block" onclick="confirmReset()">🗑️ データをすべて削除</button>
+    </div>
+
+    <div style="text-align:center;margin-top:24px;">
+      <a href="index.html" style="color:var(--p-text-sub);font-size:0.85rem;">トップに戻る</a>
+    </div>
+  </main>
+
+  <!-- ========== タブナビ ========== -->
+  <nav class="tab-nav">
+    <button class="tab-item active" onclick="showTab('home')" id="tabHome">
+      <span class="tab-icon">🏠</span> ホーム
+    </button>
+    <button class="tab-item" onclick="showTab('history')" id="tabHistory">
+      <span class="tab-icon">📋</span> りれき
+    </button>
+    <button class="tab-item" onclick="showTab('settings')" id="tabSettings">
+      <span class="tab-icon">⚙️</span> 設定
+    </button>
+  </nav>
+
+  <!-- ========== モーダル：子供QRスキャン ========== -->
+  <div class="modal-overlay" id="scanChildModal">
+    <div class="modal">
+      <h2>📷 こどものQRをスキャン</h2>
+      <p style="font-size:0.85rem;color:var(--p-text-sub);margin-bottom:12px;">こどもの端末に表示されているQRコードを読み取ってください</p>
+      <div id="scanChildReader"></div>
+      <button class="btn btn-secondary btn-block" style="margin-top:12px;" onclick="closeScanChildModal()">キャンセル</button>
+    </div>
+  </div>
+
+  <!-- ========== モーダル：報酬QR表示 ========== -->
+  <div class="modal-overlay reward-qr-modal" id="rewardQRModal">
+    <div class="modal">
+      <h2>🎁 ごほうびQR</h2>
+      <div class="reward-summary" id="rewardSummary"></div>
+      <div class="qr-display" id="rewardQRDisplay"></div>
+      <p style="font-size:0.8rem;color:var(--p-text-sub);text-align:center;margin-bottom:12px;">こどもの端末でこのQRを読み取ってもらってね</p>
+      <button class="btn btn-primary btn-block" onclick="closeRewardQRModal()">閉じる</button>
+    </div>
+  </div>
+
+  <!-- ========== モーダル：カスタムお手伝い追加 ========== -->
+  <div class="modal-overlay" id="addChoreModal">
+    <div class="modal">
+      <h2>✏️ お手伝いを追加</h2>
+      <div style="margin-bottom:12px;">
+        <label class="settings-label">アイコン（絵文字）</label>
+        <input type="text" class="input" id="newChoreIcon" value="⭐" maxlength="2" style="text-align:center;font-size:1.5rem;">
+      </div>
+      <div style="margin-bottom:12px;">
+        <label class="settings-label">名前</label>
+        <input type="text" class="input" id="newChoreName" placeholder="例：玄関そうじ">
+      </div>
+      <div style="margin-bottom:16px;">
+        <label class="settings-label">デフォルト金額（円）</label>
+        <input type="number" class="input" id="newChoreAmount" value="100" min="10" step="10">
+      </div>
+      <button class="btn btn-primary btn-block" onclick="addCustomChore()">追加する</button>
+      <button class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="closeAddChoreModal()">キャンセル</button>
+    </div>
+  </div>
+
+  <!-- ========== トースト ========== -->
+  <div class="toast" id="toast"></div>
+
+  <!-- CDN Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <!-- App Scripts -->
+  <script src="js/crypto.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/qr.js"></script>
+  <script src="js/parent.js"></script>
+</body>
+</html>

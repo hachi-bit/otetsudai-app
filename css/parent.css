@@ -1,0 +1,368 @@
+/* parent.css - 親アプリ（落ち着いた信頼感のあるデザイン） */
+
+:root {
+  --p-bg: #f8f6ff;
+  --p-surface: #ffffff;
+  --p-primary: #6c48c9;
+  --p-primary-light: #ede8ff;
+  --p-primary-dark: #4a2d94;
+  --p-text: #1e1e2e;
+  --p-text-sub: #6b6b80;
+  --p-accent: #f59e0b;
+  --p-danger: #ef4444;
+  --p-success: #22c55e;
+  --p-border: #e8e4f0;
+}
+
+body {
+  background: var(--p-bg);
+  color: var(--p-text);
+}
+
+/* ヘッダー */
+.app-header {
+  background: rgba(248, 246, 255, 0.85);
+  border-bottom: 1px solid var(--p-border);
+}
+
+.app-header h1 {
+  color: var(--p-primary);
+}
+
+/* メインコンテンツ */
+.main-content {
+  padding: 20px;
+  padding-bottom: 100px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* 子供カード一覧 */
+.children-section h2 {
+  font-size: 0.85rem;
+  color: var(--p-text-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+}
+
+.child-card {
+  background: var(--p-surface);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+
+.child-card.selected {
+  border-color: var(--p-primary);
+  background: var(--p-primary-light);
+}
+
+.child-avatar {
+  font-size: 2.2rem;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--p-primary-light);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.child-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.child-name {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.child-balance {
+  font-size: 0.85rem;
+  color: var(--p-text-sub);
+  margin-top: 2px;
+}
+
+.child-arrow {
+  color: var(--p-text-sub);
+  font-size: 1.2rem;
+}
+
+/* 子供追加ボタン */
+.add-child-btn {
+  background: var(--p-surface);
+  border: 2px dashed var(--p-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  width: 100%;
+  font-size: 0.95rem;
+  color: var(--p-text-sub);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.add-child-btn:hover {
+  border-color: var(--p-primary);
+  color: var(--p-primary);
+}
+
+/* お手伝い選択 */
+.section-title {
+  font-size: 0.85rem;
+  color: var(--p-text-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 24px 0 12px;
+}
+
+.chore-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.chore-item {
+  background: var(--p-surface);
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  padding: 14px 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.15s var(--ease-bounce);
+}
+
+.chore-item:active {
+  transform: scale(0.96);
+}
+
+.chore-item.selected {
+  border-color: var(--p-primary);
+  background: var(--p-primary-light);
+}
+
+.chore-icon {
+  font-size: 1.8rem;
+  margin-bottom: 4px;
+}
+
+.chore-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.chore-amount {
+  font-size: 0.78rem;
+  color: var(--p-text-sub);
+  margin-top: 2px;
+}
+
+/* 金額設定 */
+.amount-section {
+  margin-top: 20px;
+}
+
+.amount-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.amount-display .amount-value {
+  font-size: 2.4rem;
+  font-weight: 900;
+  color: var(--p-primary);
+  min-width: 120px;
+  text-align: center;
+}
+
+.amount-display .amount-unit {
+  font-size: 1.2rem;
+  color: var(--p-text-sub);
+  font-weight: 600;
+}
+
+.amount-btns {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.amount-btn {
+  background: var(--p-surface);
+  border: 1px solid var(--p-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-main);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.amount-btn:active {
+  background: var(--p-primary-light);
+  border-color: var(--p-primary);
+}
+
+/* 送信ボタン */
+.btn-primary {
+  background: var(--p-primary);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(108, 72, 201, 0.3);
+}
+
+.btn-primary:active {
+  box-shadow: 0 2px 8px rgba(108, 72, 201, 0.3);
+}
+
+.btn-secondary {
+  background: var(--p-primary-light);
+  color: var(--p-primary);
+}
+
+.btn-danger {
+  background: #fef2f2;
+  color: var(--p-danger);
+}
+
+/* QR表示モーダル */
+.reward-qr-modal .modal {
+  text-align: center;
+}
+
+.reward-summary {
+  background: var(--p-primary-light);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 16px;
+  font-size: 0.95rem;
+}
+
+.reward-summary .reward-child {
+  font-weight: 700;
+}
+
+.reward-summary .reward-amount {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: var(--p-primary);
+}
+
+/* 履歴 */
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--p-border);
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+.history-icon {
+  font-size: 1.5rem;
+}
+
+.history-info {
+  flex: 1;
+}
+
+.history-chore {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.history-meta {
+  font-size: 0.78rem;
+  color: var(--p-text-sub);
+  margin-top: 2px;
+}
+
+.history-amount {
+  font-weight: 700;
+  color: var(--p-primary);
+}
+
+/* タブナビゲーション */
+.tab-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--p-border);
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 0;
+  background: none;
+  border: none;
+  font-family: var(--font-main);
+  font-size: 0.7rem;
+  color: var(--p-text-sub);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.tab-item.active {
+  color: var(--p-primary);
+}
+
+.tab-icon {
+  font-size: 1.4rem;
+}
+
+/* カスタムお手伝い追加 */
+.add-chore-btn {
+  background: none;
+  border: 2px dashed var(--p-border);
+  border-radius: var(--radius-md);
+  padding: 14px 12px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--p-text-sub);
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+}
+
+.add-chore-btn:hover {
+  border-color: var(--p-primary);
+}
+
+/* 設定画面 */
+.settings-section {
+  margin-bottom: 24px;
+}
+
+.settings-label {
+  font-size: 0.85rem;
+  color: var(--p-text-sub);
+  margin-bottom: 8px;
+  display: block;
+}

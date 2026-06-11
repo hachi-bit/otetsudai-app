@@ -1,0 +1,451 @@
+/* child.css - 子アプリ（冒険・ゲーム風デザイン） */
+
+:root {
+  --c-bg: #0f0a2e;
+  --c-bg-grad: linear-gradient(170deg, #1a1145 0%, #0f0a2e 40%, #0d1a3a 100%);
+  --c-surface: rgba(255, 255, 255, 0.08);
+  --c-surface-solid: #1e1650;
+  --c-primary: #fbbf24;
+  --c-primary-glow: rgba(251, 191, 36, 0.25);
+  --c-secondary: #a78bfa;
+  --c-text: #f0ecff;
+  --c-text-sub: rgba(240, 236, 255, 0.55);
+  --c-accent-green: #34d399;
+  --c-accent-pink: #f472b6;
+  --c-accent-blue: #60a5fa;
+  --c-border: rgba(255, 255, 255, 0.1);
+}
+
+body {
+  background: var(--c-bg);
+  background-image: var(--c-bg-grad);
+  color: var(--c-text);
+  min-height: 100dvh;
+}
+
+/* 背景の星 */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 30% 60%, rgba(255,255,255,0.3) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 50% 10%, rgba(255,255,255,0.5) 0%, transparent 100%),
+    radial-gradient(1px 1px at 70% 40%, rgba(255,255,255,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 85% 75%, rgba(255,255,255,0.4) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 20% 85%, rgba(255,255,255,0.35) 0%, transparent 100%),
+    radial-gradient(1px 1px at 60% 90%, rgba(255,255,255,0.25) 0%, transparent 100%),
+    radial-gradient(1px 1px at 95% 15%, rgba(255,255,255,0.3) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+  animation: twinkle 4s ease-in-out infinite alternate;
+}
+
+@keyframes twinkle {
+  from { opacity: 0.6; }
+  to { opacity: 1; }
+}
+
+/* ヘッダー */
+.app-header {
+  background: rgba(15, 10, 46, 0.7);
+  border-bottom: 1px solid var(--c-border);
+  position: relative;
+  z-index: 10;
+}
+
+.app-header h1 {
+  color: var(--c-primary);
+  text-shadow: 0 0 20px var(--c-primary-glow);
+}
+
+/* メインコンテンツ */
+.main-content {
+  padding: 20px;
+  padding-bottom: 100px;
+  max-width: 480px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+/* アバター & プロフィール */
+.profile-section {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.avatar-large {
+  font-size: 4rem;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  background: var(--c-surface);
+  border: 3px solid var(--c-primary);
+  border-radius: 50%;
+  box-shadow: 0 0 30px var(--c-primary-glow);
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.child-username {
+  font-size: 1.3rem;
+  font-weight: 800;
+  margin-top: 10px;
+}
+
+.level-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 4px 14px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-primary);
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--c-primary);
+}
+
+/* 残高表示（宝箱風） */
+.balance-card {
+  background: linear-gradient(135deg, #2d1b69, #1e1650);
+  border: 2px solid rgba(251, 191, 36, 0.3);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  text-align: center;
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.balance-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(251, 191, 36, 0.05) 60deg,
+    transparent 120deg
+  );
+  animation: shimmer 6s linear infinite;
+}
+
+@keyframes shimmer {
+  to { transform: rotate(360deg); }
+}
+
+.balance-label {
+  font-size: 0.85rem;
+  color: var(--c-text-sub);
+  font-weight: 600;
+  position: relative;
+}
+
+.balance-amount {
+  font-size: 3rem;
+  font-weight: 900;
+  color: var(--c-primary);
+  text-shadow: 0 0 30px var(--c-primary-glow);
+  position: relative;
+  line-height: 1.2;
+}
+
+.balance-unit {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+/* 経験値バー */
+.exp-bar-container {
+  margin-top: 16px;
+  position: relative;
+}
+
+.exp-bar-bg {
+  width: 100%;
+  height: 12px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.exp-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--c-secondary), var(--c-accent-pink));
+  border-radius: 6px;
+  transition: width 0.8s var(--ease-bounce);
+}
+
+.exp-bar-text {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--c-text-sub);
+  margin-top: 4px;
+}
+
+/* QR読み取りボタン */
+.scan-btn {
+  background: linear-gradient(135deg, var(--c-primary), #f59e0b);
+  color: #1e1650;
+  font-size: 1.1rem;
+  font-weight: 800;
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 20px var(--c-primary-glow), 0 0 40px rgba(251, 191, 36, 0.15);
+  margin-bottom: 24px;
+}
+
+.scan-btn .btn-emoji {
+  font-size: 1.4rem;
+}
+
+/* 履歴リスト */
+.history-section h2 {
+  font-size: 0.85rem;
+  color: var(--c-text-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 12px;
+}
+
+.history-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+.history-icon {
+  font-size: 1.5rem;
+}
+
+.history-info {
+  flex: 1;
+}
+
+.history-chore {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.history-meta {
+  font-size: 0.75rem;
+  color: var(--c-text-sub);
+  margin-top: 2px;
+}
+
+.history-amount {
+  font-weight: 800;
+  color: var(--c-primary);
+  font-size: 1.05rem;
+}
+
+/* 子供のマイQR表示 */
+.my-qr-section {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  text-align: center;
+}
+
+.my-qr-section h3 {
+  font-size: 0.9rem;
+  color: var(--c-text-sub);
+  margin-bottom: 12px;
+}
+
+.my-qr-section .qr-display {
+  background: #fff;
+  border-radius: var(--radius-md);
+  display: inline-block;
+  padding: 16px;
+}
+
+/* タブナビゲーション */
+.tab-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  background: rgba(15, 10, 46, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--c-border);
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 0;
+  background: none;
+  border: none;
+  font-family: var(--font-main);
+  font-size: 0.7rem;
+  color: var(--c-text-sub);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.tab-item.active {
+  color: var(--c-primary);
+}
+
+.tab-icon {
+  font-size: 1.4rem;
+}
+
+/* モーダル上書き */
+.modal {
+  background: var(--c-surface-solid);
+  color: var(--c-text);
+  border: 1px solid var(--c-border);
+}
+
+/* 受取成功モーダル */
+.receive-success {
+  text-align: center;
+}
+
+.receive-amount-display {
+  font-size: 3rem;
+  font-weight: 900;
+  color: var(--c-primary);
+  text-shadow: 0 0 30px var(--c-primary-glow);
+  margin: 16px 0;
+}
+
+.receive-chore-name {
+  font-size: 1.1rem;
+  color: var(--c-text-sub);
+}
+
+/* ボタン上書き */
+.btn-primary {
+  background: linear-gradient(135deg, var(--c-primary), #f59e0b);
+  color: #1e1650;
+  font-weight: 800;
+}
+
+.btn-secondary {
+  background: var(--c-surface);
+  color: var(--c-text);
+  border: 1px solid var(--c-border);
+}
+
+/* 空状態 */
+.empty-state {
+  color: var(--c-text-sub);
+}
+
+/* セットアップ画面 */
+.setup-screen {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.setup-title {
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: var(--c-primary);
+  margin-bottom: 8px;
+}
+
+.setup-subtitle {
+  color: var(--c-text-sub);
+  margin-bottom: 32px;
+}
+
+.avatar-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin: 16px 0;
+}
+
+.avatar-option {
+  font-size: 2rem;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--c-surface);
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.2s var(--ease-bounce);
+}
+
+.avatar-option:active {
+  transform: scale(0.9);
+}
+
+.avatar-option.selected {
+  border-color: var(--c-primary);
+  box-shadow: 0 0 20px var(--c-primary-glow);
+}
+
+.setup-input {
+  background: var(--c-surface);
+  border: 2px solid var(--c-border);
+  color: var(--c-text);
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  width: 100%;
+  max-width: 280px;
+  font-family: var(--font-main);
+  font-size: 1.1rem;
+  text-align: center;
+  outline: none;
+}
+
+.setup-input:focus {
+  border-color: var(--c-primary);
+}
+
+.setup-input::placeholder {
+  color: var(--c-text-sub);
+}

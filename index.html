@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>おてつだい手帳</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1145">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link href="https://fonts.googleapis.com/css2?family=Rounded+Mplus+1c:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0a2e;
+      --gold: #fbbf24;
+      --gold-glow: rgba(251, 191, 36, 0.3);
+      --purple: #a78bfa;
+      --text: #f0ecff;
+      --text-sub: rgba(240, 236, 255, 0.5);
+    }
+
+    body {
+      font-family: 'Rounded Mplus 1c', sans-serif;
+      background: linear-gradient(170deg, #1a1145 0%, #0f0a2e 40%, #0d1a3a 100%);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    /* 星の背景 */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.4) 0%, transparent 100%),
+        radial-gradient(1px 1px at 30% 60%, rgba(255,255,255,0.3) 0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 50% 10%, rgba(255,255,255,0.5) 0%, transparent 100%),
+        radial-gradient(1px 1px at 70% 40%, rgba(255,255,255,0.3) 0%, transparent 100%),
+        radial-gradient(1px 1px at 85% 75%, rgba(255,255,255,0.4) 0%, transparent 100%);
+      pointer-events: none;
+    }
+
+    .logo {
+      font-size: 5rem;
+      margin-bottom: 12px;
+      animation: float 3s ease-in-out infinite;
+      position: relative;
+      z-index: 1;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 900;
+      color: var(--gold);
+      text-shadow: 0 0 30px var(--gold-glow);
+      margin-bottom: 8px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .subtitle {
+      font-size: 0.95rem;
+      color: var(--text-sub);
+      margin-bottom: 48px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .role-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      width: 100%;
+      max-width: 320px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .role-btn {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 20px 24px;
+      border: 2px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      font-family: 'Rounded Mplus 1c', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), border-color 0.2s, background 0.2s;
+      text-decoration: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .role-btn:active {
+      transform: scale(0.96);
+    }
+
+    .role-btn:hover {
+      border-color: var(--gold);
+      background: rgba(251, 191, 36, 0.08);
+    }
+
+    .role-btn .role-emoji {
+      font-size: 2.2rem;
+      flex-shrink: 0;
+    }
+
+    .role-btn .role-info {
+      text-align: left;
+    }
+
+    .role-btn .role-label {
+      display: block;
+      font-size: 1.15rem;
+      font-weight: 800;
+    }
+
+    .role-btn .role-desc {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--text-sub);
+      font-weight: 400;
+      margin-top: 2px;
+    }
+
+    .footer-note {
+      margin-top: 40px;
+      font-size: 0.75rem;
+      color: var(--text-sub);
+      position: relative;
+      z-index: 1;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .logo { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="logo">📒</div>
+  <h1>おてつだい手帳</h1>
+  <p class="subtitle">おてつだいして、ごほうびをゲットしよう！</p>
+
+  <div class="role-buttons">
+    <a href="parent.html" class="role-btn" id="btnParent">
+      <span class="role-emoji">👨‍👩‍👧</span>
+      <span class="role-info">
+        <span class="role-label">親アプリ</span>
+        <span class="role-desc">お手伝いの管理・ごほうびを送る</span>
+      </span>
+    </a>
+    <a href="child.html" class="role-btn" id="btnChild">
+      <span class="role-emoji">⭐</span>
+      <span class="role-info">
+        <span class="role-label">子アプリ</span>
+        <span class="role-desc">ごほうびを受け取る・記録を見る</span>
+      </span>
+    </a>
+  </div>
+
+  <p class="footer-note">データはこの端末にのみ保存されます</p>
+
+  <script>
+    // PWA Service Worker登録
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+
+    // 既にロール設定済みなら直接遷移
+    const role = localStorage.getItem('ote_role');
+    if (role === 'parent' && localStorage.getItem('ote_parent')) {
+      // 親データがあればスキップ可能（ただし選択画面も見せる）
+    }
+    if (role === 'child' && localStorage.getItem('ote_child')) {
+      // 子データがあればスキップ可能
+    }
+  </script>
+</body>
+</html>
