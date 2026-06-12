@@ -17,23 +17,19 @@ const QR = {
       return;
     }
 
-    const qr = new QRCode(el, {
-      text: jsonStr,
-      width: size,
-      height: size,
-      colorDark: '#2d1b69',
-      colorLight: '#ffffff',
-      correctLevel: QRCode.CorrectLevel.M,
-    });
-
-    // qrcode.js は canvas + 非表示img を生成する
-    // 非表示imgを削除してcanvasだけ残す
-    requestAnimationFrame(() => {
-      const hiddenImg = el.querySelector('img[style*="display"]');
-      if (hiddenImg) hiddenImg.remove();
-    });
-
-    return qr;
+    try {
+      return new QRCode(el, {
+        text: jsonStr,
+        width: size,
+        height: size,
+        colorDark: '#2d1b69',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.L,
+      });
+    } catch (e) {
+      console.error('QR generation failed:', e.message, 'data length:', jsonStr.length);
+      el.innerHTML = '<div style="padding:20px;text-align:center;color:#ef4444;font-size:0.9rem;">QRコードの生成に失敗しました。<br>データが大きすぎる可能性があります。</div>';
+    }
   },
 
   /**
