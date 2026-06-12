@@ -173,25 +173,21 @@ body {
 
 /* QRコード表示エリア */
 .qr-display {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  text-align: center;
   padding: 20px;
   background: #fff;
   border-radius: var(--radius-md);
   margin: 16px auto;
-  text-align: center;
 }
 
-/* qrcode.js が生成する内部要素の中央寄せ */
-.qr-display > div {
-  margin: 0 auto !important;
-}
-
-.qr-display img,
 .qr-display canvas {
   display: block;
-  margin: 0 auto !important;
+  margin: 0 auto;
+}
+
+.qr-display img {
+  display: block;
+  margin: 0 auto;
   border-radius: 8px;
 }
 
