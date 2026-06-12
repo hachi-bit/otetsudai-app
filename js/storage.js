@@ -23,10 +23,11 @@ const Store = {
   setParentData(data) {
     localStorage.setItem(this.KEYS.PARENT_DATA, JSON.stringify(data));
   },
-  initParent() {
+  initParent(parentName) {
     const data = {
       role: 'parent',
       parentId: OteCrypto.generateId('p'),
+      parentName: parentName,
       secret: OteCrypto.generateSecret(),
       children: [],
       choreTemplates: [
@@ -53,22 +54,6 @@ const Store = {
   setChildData(data) {
     localStorage.setItem(this.KEYS.CHILD_DATA, JSON.stringify(data));
   },
-  initChild(name, avatar) {
-    const data = {
-      role: 'child',
-      childId: OteCrypto.generateId('c'),
-      name: name,
-      avatar: avatar,
-      balance: 0,
-      totalEarned: 0,
-      level: 1,
-      history: [],
-      parentId: null,
-      scannedSeqs: [],  // 重複スキャン防止用
-    };
-    this.setChildData(data);
-    return data;
-  },
 
   // --- 子供のレベル計算 ---
   LEVELS: [
@@ -90,13 +75,28 @@ const Store = {
     for (const lv of this.LEVELS) {
       if (totalEarned < lv.threshold) return lv;
     }
-    return null; // MAX
+    return null;
   },
 
   // --- リセット ---
   clearAll() {
+    // localStorageのアプリデータ削除
     localStorage.removeItem(this.KEYS.ROLE);
     localStorage.removeItem(this.KEYS.PARENT_DATA);
     localStorage.removeItem(this.KEYS.CHILD_DATA);
+
+    // Service Workerのキャッシュ削除
+    if ('caches' in window) {
+      caches.keys().then(keys => {
+        keys.forEach(key => caches.delete(key));
+      });
+    }
+
+    // Service Worker登録解除
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(reg => reg.unregister());
+      });
+    }
   }
 };

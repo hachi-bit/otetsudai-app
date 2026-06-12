@@ -1,24 +1,39 @@
-// parent.js - 親アプリのメインロジック
+// parent.js - 親アプリのメインロジック（複数親対応）
 
-// ========== 定数 ==========
-const CHILD_AVATARS = ['🦁', '🐱', '🐶', '🐰', '🦊', '🐼', '🐸', '🐧', '🦄', '🐲', '🌟', '🚀'];
+const CHILD_AVATARS = ['🦁','🐱','🐶','🐰','🦊','🐼','🐸','🐧','🦄','🐲','🌟','🚀'];
 
-// ========== 状態 ==========
 let parentData = null;
 let selectedChildId = null;
 let selectedChoreId = null;
 let currentAmount = 0;
 let selectedAvatar = CHILD_AVATARS[0];
+let shareScanner = null;
 
 // ========== 初期化 ==========
 document.addEventListener('DOMContentLoaded', () => {
   parentData = Store.getParentData();
   if (!parentData) {
-    Store.setRole('parent');
-    parentData = Store.initParent();
+    document.getElementById('setupScreen').style.display = 'flex';
+    document.getElementById('appScreen').style.display = 'none';
+  } else {
+    showApp();
   }
-  render();
 });
+
+// ========== 親セットアップ ==========
+function completeParentSetup() {
+  const name = document.getElementById('setupParentName').value.trim();
+  if (!name) { showToast('名前を入力してください', 'error'); return; }
+  Store.setRole('parent');
+  parentData = Store.initParent(name);
+  showApp();
+}
+
+function showApp() {
+  document.getElementById('setupScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  render();
+}
 
 // ========== 描画 ==========
 function render() {
@@ -31,18 +46,12 @@ function render() {
 function renderChildren() {
   const container = document.getElementById('childrenList');
   if (parentData.children.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">👶</div>
-        <p>まだこどもが登録されていません<br>下のボタンから追加しよう</p>
-      </div>`;
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">👶</div><p>まだこどもが登録されていません<br>下のボタンから追加しよう</p></div>';
     document.getElementById('choreSection').style.display = 'none';
     return;
   }
-
   container.innerHTML = parentData.children.map(child => `
-    <div class="card child-card ${selectedChildId === child.childId ? 'selected' : ''}"
-         onclick="selectChild('${child.childId}')">
+    <div class="card child-card ${selectedChildId === child.childId ? 'selected' : ''}" onclick="selectChild('${child.childId}')">
       <div class="child-avatar">${child.avatar}</div>
       <div class="child-info">
         <div class="child-name">${escHtml(child.name)}</div>
@@ -56,10 +65,8 @@ function renderChildren() {
 function renderChores() {
   const grid = document.getElementById('choreGrid');
   const allChores = [...parentData.choreTemplates, ...parentData.customChores];
-
   grid.innerHTML = allChores.map(chore => `
-    <div class="chore-item ${selectedChoreId === chore.id ? 'selected' : ''}"
-         onclick="selectChore('${chore.id}')">
+    <div class="chore-item ${selectedChoreId === chore.id ? 'selected' : ''}" onclick="selectChore('${chore.id}')">
       <div class="chore-icon">${chore.icon}</div>
       <div class="chore-name">${escHtml(chore.name)}</div>
       <div class="chore-amount">${chore.amount}円</div>
@@ -71,21 +78,13 @@ function renderHistory() {
   const container = document.getElementById('historyList');
   const allHistory = [];
   parentData.children.forEach(child => {
-    child.sentHistory.forEach(h => {
-      allHistory.push({ ...h, childName: child.name, childAvatar: child.avatar });
-    });
+    child.sentHistory.forEach(h => allHistory.push({ ...h, childName: child.name, childAvatar: child.avatar }));
   });
   allHistory.sort((a, b) => b.timestamp - a.timestamp);
-
   if (allHistory.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">📋</div>
-        <p>まだ送信りれきがありません</p>
-      </div>`;
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>まだ送信りれきがありません</p></div>';
     return;
   }
-
   container.innerHTML = `<div class="card">${allHistory.map(h => `
     <div class="history-item">
       <div class="history-icon">${h.icon || '⭐'}</div>
@@ -99,6 +98,7 @@ function renderHistory() {
 }
 
 function renderSettings() {
+  document.getElementById('parentNameDisplay').textContent = parentData.parentName;
   document.getElementById('parentIdDisplay').textContent = parentData.parentId;
 
   const childList = document.getElementById('settingsChildrenList');
@@ -106,11 +106,14 @@ function renderSettings() {
     childList.innerHTML = '<p style="color:var(--p-text-sub);font-size:0.9rem;">登録なし</p>';
   } else {
     childList.innerHTML = parentData.children.map((child, i) => `
-      <div class="card" style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+      <div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
         <span style="font-size:1.5rem;">${child.avatar}</span>
         <span style="flex:1;font-weight:700;">${escHtml(child.name)}</span>
         <span style="font-size:0.8rem;color:var(--p-text-sub);">累計 ${child.expectedBalance}円</span>
-        <button class="header-btn" onclick="removeChild(${i})" title="削除" style="color:var(--p-danger);">✕</button>
+        <div style="width:100%;display:flex;gap:8px;margin-top:4px;">
+          <button class="btn btn-secondary" style="flex:1;padding:8px;font-size:0.8rem;" onclick="openShareChildModal(${i})">👨‍👩‍👧 共有</button>
+          <button class="btn btn-danger" style="padding:8px;font-size:0.8rem;" onclick="removeChild(${i})">削除</button>
+        </div>
       </div>
     `).join('');
   }
@@ -118,20 +121,20 @@ function renderSettings() {
   const choreList = document.getElementById('settingsChoreList');
   const customs = parentData.customChores || [];
   if (customs.length === 0) {
-    choreList.innerHTML = '<p style="color:var(--p-text-sub);font-size:0.9rem;">カスタム項目なし（デフォルトテンプレートは常に表示されます）</p>';
+    choreList.innerHTML = '<p style="color:var(--p-text-sub);font-size:0.9rem;">カスタム項目なし</p>';
   } else {
     choreList.innerHTML = customs.map((ch, i) => `
       <div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
         <span style="font-size:1.3rem;">${ch.icon}</span>
         <span style="flex:1;font-weight:600;">${escHtml(ch.name)}</span>
         <span style="font-size:0.85rem;color:var(--p-text-sub);">${ch.amount}円</span>
-        <button class="header-btn" onclick="removeCustomChore(${i})" title="削除" style="color:var(--p-danger);">✕</button>
+        <button class="header-btn" onclick="removeCustomChore(${i})" style="color:var(--p-danger);">✕</button>
       </div>
     `).join('');
   }
 }
 
-// ========== 子供選択 ==========
+// ========== 子供選択 & お手伝い選択 ==========
 function selectChild(childId) {
   selectedChildId = childId;
   selectedChoreId = null;
@@ -144,7 +147,6 @@ function selectChild(childId) {
   document.getElementById('choreSection').scrollIntoView({ behavior: 'smooth' });
 }
 
-// ========== お手伝い選択 ==========
 function selectChore(choreId) {
   selectedChoreId = choreId;
   const allChores = [...parentData.choreTemplates, ...parentData.customChores];
@@ -157,7 +159,6 @@ function selectChore(choreId) {
   renderChores();
 }
 
-// ========== 金額調整 ==========
 function adjustAmount(delta) {
   currentAmount = Math.max(10, currentAmount + delta);
   document.getElementById('amountValue').textContent = currentAmount;
@@ -169,7 +170,6 @@ async function generateRewardQR() {
     showToast('子ども・お手伝い・金額を選んでください', 'error');
     return;
   }
-
   const child = parentData.children.find(c => c.childId === selectedChildId);
   const allChores = [...parentData.choreTemplates, ...parentData.customChores];
   const chore = allChores.find(c => c.id === selectedChoreId);
@@ -178,42 +178,26 @@ async function generateRewardQR() {
   const seq = child.sentHistory.length + 1;
   const timestamp = Date.now();
   const newExpectedBalance = child.expectedBalance + currentAmount;
-
-  const hash = await OteCrypto.createRewardHash(
-    parentData.parentId, child.childId, currentAmount, timestamp, seq, parentData.secret
-  );
+  const hash = await OteCrypto.createRewardHash(parentData.parentId, child.childId, currentAmount, timestamp, seq, parentData.secret);
 
   const qrData = {
-    t: 'rwd',
-    pid: parentData.parentId,
-    cid: child.childId,
-    ch: chore.name,
-    ci: chore.icon,
-    amt: currentAmount,
-    ts: timestamp,
-    seq: seq,
-    eb: newExpectedBalance,
-    h: hash
+    t: 'rwd', pid: parentData.parentId, pn: parentData.parentName,
+    cid: child.childId, ch: chore.name, ci: chore.icon,
+    amt: currentAmount, ts: timestamp, seq: seq, eb: newExpectedBalance, h: hash
   };
 
-  child.sentHistory.push({
-    chore: chore.name, icon: chore.icon, amount: currentAmount,
-    timestamp: timestamp, seq: seq, hash: hash
-  });
+  child.sentHistory.push({ chore: chore.name, icon: chore.icon, amount: currentAmount, timestamp, seq, hash });
   child.expectedBalance = newExpectedBalance;
   Store.setParentData(parentData);
 
   document.getElementById('rewardSummary').innerHTML = `
     <div>${child.avatar} <span class="reward-child">${escHtml(child.name)}</span></div>
     <div style="margin-top:4px;">${chore.icon} ${escHtml(chore.name)}</div>
-    <div class="reward-amount" style="margin-top:8px;">${currentAmount}円</div>
-  `;
-
+    <div class="reward-amount" style="margin-top:8px;">${currentAmount}円</div>`;
   document.getElementById('rewardQRModal').classList.add('active');
   setTimeout(() => QR.generate('rewardQRDisplay', qrData, 200), 100);
 
-  selectedChoreId = null;
-  currentAmount = 0;
+  selectedChoreId = null; currentAmount = 0;
   document.getElementById('amountSection').style.display = 'none';
   render();
 }
@@ -223,131 +207,191 @@ function closeRewardQRModal() {
   document.getElementById('rewardQRDisplay').innerHTML = '';
 }
 
-// ========== こども追加（登録QR生成） ==========
+// ========== こども追加モーダル ==========
 function openAddChildModal() {
-  selectedAvatar = CHILD_AVATARS[0];
-  document.getElementById('newChildName').value = '';
-  document.getElementById('addChildStep1').style.display = 'block';
-  document.getElementById('addChildStep2').style.display = 'none';
-
-  // アバターピッカー描画
-  const picker = document.getElementById('childAvatarPicker');
-  picker.innerHTML = CHILD_AVATARS.map(a => `
-    <div style="font-size:1.8rem;width:48px;height:48px;display:flex;align-items:center;justify-content:center;
-                background:${a === selectedAvatar ? 'var(--p-primary-light)' : 'var(--p-surface)'};
-                border:2px solid ${a === selectedAvatar ? 'var(--p-primary)' : 'var(--p-border)'};
-                border-radius:50%;cursor:pointer;"
-         onclick="pickChildAvatar('${a}', this)">${a}</div>
-  `).join('');
-
+  hideAllAddChildSteps();
+  document.getElementById('addChildStep0').style.display = 'block';
   document.getElementById('addChildModal').classList.add('active');
-}
-
-function pickChildAvatar(avatar, el) {
-  selectedAvatar = avatar;
-  // 全アバターの選択状態をリセットして再描画
-  const picker = document.getElementById('childAvatarPicker');
-  picker.querySelectorAll('div').forEach((d, i) => {
-    const a = CHILD_AVATARS[i];
-    d.style.background = a === avatar ? 'var(--p-primary-light)' : 'var(--p-surface)';
-    d.style.borderColor = a === avatar ? 'var(--p-primary)' : 'var(--p-border)';
-  });
-}
-
-function generateChildRegQR() {
-  const name = document.getElementById('newChildName').value.trim();
-  if (!name) {
-    showToast('名前を入力してください', 'error');
-    return;
-  }
-
-  // ユニークなchildIdを生成（既存IDと重複チェック）
-  let childId;
-  let attempts = 0;
-  do {
-    childId = OteCrypto.generateId('c');
-    attempts++;
-  } while (parentData.children.some(c => c.childId === childId) && attempts < 100);
-
-  // 登録データを親側に即座に追加
-  const newChild = {
-    childId: childId,
-    name: name,
-    avatar: selectedAvatar,
-    registeredAt: new Date().toISOString(),
-    sentHistory: [],
-    expectedBalance: 0
-  };
-  parentData.children.push(newChild);
-  Store.setParentData(parentData);
-
-  // 登録QRデータ（子側がスキャンする）
-  const qrData = {
-    t: 'reg',
-    pid: parentData.parentId,
-    cid: childId,
-    n: name,
-    a: selectedAvatar
-  };
-
-  // ステップ2へ切替
-  document.getElementById('addChildStep1').style.display = 'none';
-  document.getElementById('addChildStep2').style.display = 'block';
-  document.getElementById('addChildInfo').textContent = `${selectedAvatar} ${name}の登録QR`;
-
-  setTimeout(() => QR.generate('childRegQRDisplay', qrData, 200), 100);
-  render();
 }
 
 function closeAddChildModal() {
   document.getElementById('addChildModal').classList.remove('active');
   document.getElementById('childRegQRDisplay').innerHTML = '';
+  QR.stopScanner(shareScanner); shareScanner = null;
+  document.getElementById('shareChildReader').innerHTML = '';
 }
 
-// ========== カスタムお手伝い追加 ==========
+function backToStep0() {
+  hideAllAddChildSteps();
+  document.getElementById('addChildStep0').style.display = 'block';
+  QR.stopScanner(shareScanner); shareScanner = null;
+  document.getElementById('shareChildReader').innerHTML = '';
+}
+
+function hideAllAddChildSteps() {
+  ['addChildStep0','addChildStep1New','addChildStep1Existing','addChildStep2'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+}
+
+// --- 新規こども ---
+function showAddChildNew() {
+  selectedAvatar = CHILD_AVATARS[0];
+  document.getElementById('newChildName').value = '';
+  hideAllAddChildSteps();
+  document.getElementById('addChildStep1New').style.display = 'block';
+  renderAvatarPicker();
+}
+
+function renderAvatarPicker() {
+  const picker = document.getElementById('childAvatarPicker');
+  picker.innerHTML = CHILD_AVATARS.map(a => `
+    <div style="font-size:1.8rem;width:48px;height:48px;display:flex;align-items:center;justify-content:center;
+                background:${a === selectedAvatar ? 'var(--p-primary-light)' : 'var(--p-surface)'};
+                border:2px solid ${a === selectedAvatar ? 'var(--p-primary)' : 'var(--p-border)'};
+                border-radius:50%;cursor:pointer;" onclick="pickChildAvatar('${a}')">${a}</div>
+  `).join('');
+}
+
+function pickChildAvatar(avatar) {
+  selectedAvatar = avatar;
+  renderAvatarPicker();
+}
+
+function generateChildRegQR() {
+  const name = document.getElementById('newChildName').value.trim();
+  if (!name) { showToast('名前を入力してください', 'error'); return; }
+
+  let childId, attempts = 0;
+  do { childId = OteCrypto.generateId('c'); attempts++; }
+  while (parentData.children.some(c => c.childId === childId) && attempts < 100);
+
+  const familyToken = OteCrypto.generateSecret().substring(0, 32);
+
+  parentData.children.push({
+    childId, name, avatar: selectedAvatar, familyToken,
+    registeredAt: new Date().toISOString(), sentHistory: [], expectedBalance: 0
+  });
+  Store.setParentData(parentData);
+
+  showRegQR(childId, name, selectedAvatar, familyToken);
+  render();
+}
+
+// --- 既存こども（共有QRスキャン） ---
+function showAddChildExisting() {
+  hideAllAddChildSteps();
+  document.getElementById('addChildStep1Existing').style.display = 'block';
+  setTimeout(async () => {
+    try {
+      shareScanner = await QR.startScanner('shareChildReader', onShareChildScanned, (err) => {
+        showToast(err, 'error');
+        backToStep0();
+      });
+    } catch (e) {
+      showToast('カメラの起動に失敗しました', 'error');
+      backToStep0();
+    }
+  }, 300);
+}
+
+function cancelExistingScan() {
+  QR.stopScanner(shareScanner); shareScanner = null;
+  document.getElementById('shareChildReader').innerHTML = '';
+  backToStep0();
+}
+
+function onShareChildScanned(data) {
+  QR.stopScanner(shareScanner); shareScanner = null;
+  document.getElementById('shareChildReader').innerHTML = '';
+
+  if (data.t !== 'share') {
+    showToast('これは共有QRではありません', 'error');
+    backToStep0();
+    return;
+  }
+
+  if (parentData.children.some(c => c.childId === data.cid)) {
+    showToast(`${data.n}はすでに登録されています`, 'error');
+    closeAddChildModal();
+    return;
+  }
+
+  parentData.children.push({
+    childId: data.cid, name: data.n, avatar: data.a, familyToken: data.ft,
+    registeredAt: new Date().toISOString(), sentHistory: [], expectedBalance: 0
+  });
+  Store.setParentData(parentData);
+
+  showToast(`${data.a} ${data.n}の情報を取得しました`, 'success');
+  showRegQR(data.cid, data.n, data.a, data.ft);
+  render();
+}
+
+// --- 共通：登録QR表示 ---
+function showRegQR(childId, name, avatar, familyToken) {
+  hideAllAddChildSteps();
+  document.getElementById('addChildStep2').style.display = 'block';
+  document.getElementById('addChildInfo').textContent = `${avatar} ${name} の登録QR`;
+
+  const qrData = {
+    t: 'reg', pid: parentData.parentId, pn: parentData.parentName,
+    cid: childId, n: name, a: avatar, ft: familyToken
+  };
+  setTimeout(() => QR.generate('childRegQRDisplay', qrData, 200), 100);
+}
+
+// ========== こども共有QR ==========
+function openShareChildModal(index) {
+  const child = parentData.children[index];
+  document.getElementById('shareChildInfo').textContent = `${child.avatar} ${child.name} の情報を共有`;
+
+  const qrData = {
+    t: 'share', cid: child.childId, n: child.name, a: child.avatar, ft: child.familyToken
+  };
+  document.getElementById('shareChildModal').classList.add('active');
+  setTimeout(() => QR.generate('shareChildQRDisplay', qrData, 200), 100);
+}
+
+function closeShareChildModal() {
+  document.getElementById('shareChildModal').classList.remove('active');
+  document.getElementById('shareChildQRDisplay').innerHTML = '';
+}
+
+// ========== カスタムお手伝い ==========
 function openAddChoreModal() {
   document.getElementById('newChoreIcon').value = '⭐';
   document.getElementById('newChoreName').value = '';
   document.getElementById('newChoreAmount').value = '100';
   document.getElementById('addChoreModal').classList.add('active');
 }
-
-function closeAddChoreModal() {
-  document.getElementById('addChoreModal').classList.remove('active');
-}
+function closeAddChoreModal() { document.getElementById('addChoreModal').classList.remove('active'); }
 
 function addCustomChore() {
   const icon = document.getElementById('newChoreIcon').value.trim() || '⭐';
   const name = document.getElementById('newChoreName').value.trim();
   const amount = parseInt(document.getElementById('newChoreAmount').value) || 100;
-
-  if (!name) {
-    showToast('名前を入力してください', 'error');
-    return;
-  }
-
+  if (!name) { showToast('名前を入力してください', 'error'); return; }
   if (!parentData.customChores) parentData.customChores = [];
-  parentData.customChores.push({
-    id: 'c_' + Date.now(), name: name, icon: icon, amount: Math.max(10, amount)
-  });
+  parentData.customChores.push({ id: 'c_' + Date.now(), name, icon, amount: Math.max(10, amount) });
   Store.setParentData(parentData);
   closeAddChoreModal();
   showToast(`${icon} ${name}を追加しました`, 'success');
   render();
 }
 
-function removeCustomChore(index) {
-  if (!confirm('このカスタム項目を削除しますか？')) return;
-  parentData.customChores.splice(index, 1);
+function removeCustomChore(i) {
+  if (!confirm('削除しますか？')) return;
+  parentData.customChores.splice(i, 1);
   Store.setParentData(parentData);
   render();
 }
 
 // ========== 子供削除 ==========
-function removeChild(index) {
-  const child = parentData.children[index];
-  if (!confirm(`${child.name}を登録から削除しますか？\n送信りれきも消えます。`)) return;
-  parentData.children.splice(index, 1);
+function removeChild(i) {
+  const child = parentData.children[i];
+  if (!confirm(`${child.name}を削除しますか？`)) return;
+  parentData.children.splice(i, 1);
   if (selectedChildId === child.childId) {
     selectedChildId = null;
     document.getElementById('choreSection').style.display = 'none';
@@ -356,26 +400,24 @@ function removeChild(index) {
   render();
 }
 
-// ========== データリセット ==========
+// ========== その他 ==========
 function confirmReset() {
-  if (!confirm('すべてのデータを削除しますか？\nこの操作は取り消せません。')) return;
+  if (!confirm('すべてのデータを削除しますか？')) return;
   if (!confirm('本当に削除しますか？')) return;
   Store.clearAll();
   location.href = 'index.html';
 }
 
-// ========== タブ切り替え ==========
 function showTab(tab) {
-  ['home', 'history', 'settings'].forEach(t => {
+  ['home','history','settings'].forEach(t => {
     document.getElementById('tab-' + t).style.display = (t === tab) ? 'block' : 'none';
-    const tabBtn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
-    if (tabBtn) tabBtn.classList.toggle('active', t === tab);
+    const btn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
+    if (btn) btn.classList.toggle('active', t === tab);
   });
   if (tab === 'history') renderHistory();
   if (tab === 'settings') renderSettings();
 }
 
-// ========== ユーティリティ ==========
 function showToast(msg, type = 'success') {
   const el = document.getElementById('toast');
   el.textContent = msg;
@@ -383,12 +425,7 @@ function showToast(msg, type = 'success') {
   setTimeout(() => el.classList.remove('show'), 2500);
 }
 
-function escHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function formatDate(ts) {
   const d = new Date(ts);
   return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
