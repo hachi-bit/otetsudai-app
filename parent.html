@@ -13,105 +13,116 @@
 </head>
 <body>
 
-  <!-- ========== ヘッダー ========== -->
-  <header class="app-header">
-    <h1>📒 おてつだい手帳</h1>
-    <button class="header-btn" onclick="showTab('settings')" title="設定">⚙️</button>
-  </header>
+  <!-- ========== 初回セットアップ ========== -->
+  <div id="setupScreen" style="display:none;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center;">
+    <div style="font-size:3.5rem;margin-bottom:12px;">👨‍👩‍👧</div>
+    <h1 style="font-size:1.6rem;font-weight:900;color:var(--p-primary);margin-bottom:8px;">親アプリのセットアップ</h1>
+    <p style="color:var(--p-text-sub);margin-bottom:32px;">こどもに表示される名前を入れてね</p>
+    <input type="text" class="input" id="setupParentName" placeholder="例：パパ、ママ、おばあちゃん" maxlength="10" style="max-width:300px;text-align:center;font-size:1.1rem;">
+    <button class="btn btn-primary btn-block" style="margin-top:20px;max-width:300px;" onclick="completeParentSetup()">はじめる</button>
+  </div>
 
-  <!-- ========== メイン：ホーム ========== -->
-  <main class="main-content" id="tab-home">
+  <!-- ========== メインアプリ ========== -->
+  <div id="appScreen" style="display:none;">
 
-    <!-- 子供一覧 -->
-    <section class="children-section">
-      <h2>👦 こどもたち</h2>
-      <div id="childrenList"></div>
-      <button class="add-child-btn" onclick="openAddChildModal()">
-        ＋ こどもを追加
-      </button>
-    </section>
+    <!-- ヘッダー -->
+    <header class="app-header">
+      <h1>📒 おてつだい手帳</h1>
+      <button class="header-btn" onclick="showTab('settings')" title="設定">⚙️</button>
+    </header>
 
-    <!-- お手伝い選択（子供選択後に表示） -->
-    <section id="choreSection" style="display:none;">
-      <h2 class="section-title" id="choreSectionTitle">🧹 おてつだいを選ぶ</h2>
-      <div class="chore-grid" id="choreGrid"></div>
-      <button class="add-chore-btn" onclick="openAddChoreModal()">＋ カスタム項目を追加</button>
+    <!-- ========== タブ：ホーム ========== -->
+    <main class="main-content" id="tab-home">
+      <section class="children-section">
+        <h2>👦 こどもたち</h2>
+        <div id="childrenList"></div>
+        <button class="add-child-btn" onclick="openAddChildModal()">＋ こどもを追加</button>
+      </section>
 
-      <!-- 金額設定 -->
-      <div class="amount-section" id="amountSection" style="display:none;">
-        <h2 class="section-title">💰 金額</h2>
-        <div class="amount-display">
-          <span class="amount-value" id="amountValue">0</span>
-          <span class="amount-unit">円</span>
+      <section id="choreSection" style="display:none;">
+        <h2 class="section-title" id="choreSectionTitle">🧹 おてつだいを選ぶ</h2>
+        <div class="chore-grid" id="choreGrid"></div>
+        <button class="add-chore-btn" onclick="openAddChoreModal()">＋ カスタム項目を追加</button>
+
+        <div class="amount-section" id="amountSection" style="display:none;">
+          <h2 class="section-title">💰 金額</h2>
+          <div class="amount-display">
+            <span class="amount-value" id="amountValue">0</span>
+            <span class="amount-unit">円</span>
+          </div>
+          <div class="amount-btns">
+            <button class="amount-btn" onclick="adjustAmount(-50)">-50</button>
+            <button class="amount-btn" onclick="adjustAmount(-10)">-10</button>
+            <button class="amount-btn" onclick="adjustAmount(10)">+10</button>
+            <button class="amount-btn" onclick="adjustAmount(50)">+50</button>
+            <button class="amount-btn" onclick="adjustAmount(100)">+100</button>
+          </div>
+          <button class="btn btn-primary btn-block" style="margin-top:20px;" onclick="generateRewardQR()">🎁 ごほうびQRを作成</button>
         </div>
-        <div class="amount-btns">
-          <button class="amount-btn" onclick="adjustAmount(-50)">-50</button>
-          <button class="amount-btn" onclick="adjustAmount(-10)">-10</button>
-          <button class="amount-btn" onclick="adjustAmount(10)">+10</button>
-          <button class="amount-btn" onclick="adjustAmount(50)">+50</button>
-          <button class="amount-btn" onclick="adjustAmount(100)">+100</button>
-        </div>
-        <button class="btn btn-primary btn-block" style="margin-top:20px;" onclick="generateRewardQR()" id="sendBtn">
-          🎁 ごほうびQRを作成
-        </button>
+      </section>
+    </main>
+
+    <!-- ========== タブ：履歴 ========== -->
+    <main class="main-content" id="tab-history" style="display:none;">
+      <h2 class="section-title">📋 送信りれき</h2>
+      <div id="historyList"></div>
+    </main>
+
+    <!-- ========== タブ：設定 ========== -->
+    <main class="main-content" id="tab-settings" style="display:none;">
+      <h2 class="section-title">⚙️ 設定</h2>
+      <div class="settings-section">
+        <label class="settings-label">表示名</label>
+        <div class="card" id="parentNameDisplay"></div>
       </div>
-    </section>
-  </main>
+      <div class="settings-section">
+        <label class="settings-label">親ID</label>
+        <div class="card" style="font-size:0.8rem;word-break:break-all;" id="parentIdDisplay"></div>
+      </div>
+      <div class="settings-section">
+        <label class="settings-label">登録済みのこども</label>
+        <div id="settingsChildrenList"></div>
+      </div>
+      <div class="settings-section">
+        <label class="settings-label">お手伝いテンプレート管理</label>
+        <div id="settingsChoreList"></div>
+        <button class="btn btn-secondary btn-block" style="margin-top:12px;" onclick="openAddChoreModal()">＋ テンプレートを追加</button>
+      </div>
+      <div class="settings-section" style="margin-top:40px;">
+        <button class="btn btn-danger btn-block" onclick="confirmReset()">🗑️ データをすべて削除</button>
+      </div>
+      <div style="text-align:center;margin-top:24px;">
+        <a href="index.html" style="color:var(--p-text-sub);font-size:0.85rem;">トップに戻る</a>
+      </div>
+    </main>
 
-  <!-- ========== メイン：履歴 ========== -->
-  <main class="main-content" id="tab-history" style="display:none;">
-    <h2 class="section-title">📋 送信りれき</h2>
-    <div id="historyList"></div>
-  </main>
+    <!-- タブナビ -->
+    <nav class="tab-nav">
+      <button class="tab-item active" onclick="showTab('home')" id="tabHome">
+        <span class="tab-icon">🏠</span> ホーム
+      </button>
+      <button class="tab-item" onclick="showTab('history')" id="tabHistory">
+        <span class="tab-icon">📋</span> りれき
+      </button>
+      <button class="tab-item" onclick="showTab('settings')" id="tabSettings">
+        <span class="tab-icon">⚙️</span> 設定
+      </button>
+    </nav>
+  </div>
 
-  <!-- ========== メイン：設定 ========== -->
-  <main class="main-content" id="tab-settings" style="display:none;">
-    <h2 class="section-title">⚙️ 設定</h2>
-
-    <div class="settings-section">
-      <label class="settings-label">親ID</label>
-      <div class="card" style="font-size:0.8rem;word-break:break-all;" id="parentIdDisplay"></div>
-    </div>
-
-    <div class="settings-section">
-      <label class="settings-label">登録済みのこども</label>
-      <div id="settingsChildrenList"></div>
-    </div>
-
-    <div class="settings-section">
-      <label class="settings-label">お手伝いテンプレート管理</label>
-      <div id="settingsChoreList"></div>
-      <button class="btn btn-secondary btn-block" style="margin-top:12px;" onclick="openAddChoreModal()">＋ テンプレートを追加</button>
-    </div>
-
-    <div class="settings-section" style="margin-top:40px;">
-      <button class="btn btn-danger btn-block" onclick="confirmReset()">🗑️ データをすべて削除</button>
-    </div>
-
-    <div style="text-align:center;margin-top:24px;">
-      <a href="index.html" style="color:var(--p-text-sub);font-size:0.85rem;">トップに戻る</a>
-    </div>
-  </main>
-
-  <!-- ========== タブナビ ========== -->
-  <nav class="tab-nav">
-    <button class="tab-item active" onclick="showTab('home')" id="tabHome">
-      <span class="tab-icon">🏠</span> ホーム
-    </button>
-    <button class="tab-item" onclick="showTab('history')" id="tabHistory">
-      <span class="tab-icon">📋</span> りれき
-    </button>
-    <button class="tab-item" onclick="showTab('settings')" id="tabSettings">
-      <span class="tab-icon">⚙️</span> 設定
-    </button>
-  </nav>
-
-  <!-- ========== モーダル：こども追加（登録QR表示） ========== -->
+  <!-- ========== モーダル：こども追加（選択） ========== -->
   <div class="modal-overlay" id="addChildModal">
     <div class="modal">
-      <!-- ステップ1: 名前入力 -->
-      <div id="addChildStep1">
+      <!-- ステップ0: 新規 or 既存 選択 -->
+      <div id="addChildStep0">
         <h2>👶 こどもを追加</h2>
+        <button class="btn btn-primary btn-block" onclick="showAddChildNew()">🆕 あたらしいこどもを登録</button>
+        <button class="btn btn-secondary btn-block" style="margin-top:10px;" onclick="showAddChildExisting()">👨‍👩‍👧 べつの親から共有されたこども</button>
+        <button class="btn btn-secondary btn-block" style="margin-top:10px;" onclick="closeAddChildModal()">キャンセル</button>
+      </div>
+      <!-- ステップ1a: 新規こども -->
+      <div id="addChildStep1New" style="display:none;">
+        <h2>🆕 あたらしいこどもを登録</h2>
         <div style="margin-bottom:12px;">
           <label class="settings-label">こどもの名前</label>
           <input type="text" class="input" id="newChildName" placeholder="例：たろう" maxlength="10">
@@ -121,16 +132,34 @@
           <div id="childAvatarPicker" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:8px;"></div>
         </div>
         <button class="btn btn-primary btn-block" onclick="generateChildRegQR()">登録QRを作成</button>
-        <button class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="closeAddChildModal()">キャンセル</button>
+        <button class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="backToStep0()">もどる</button>
       </div>
-      <!-- ステップ2: QR表示 -->
+      <!-- ステップ1b: 既存こども（共有QRスキャン） -->
+      <div id="addChildStep1Existing" style="display:none;">
+        <h2>📷 共有QRをスキャン</h2>
+        <p style="font-size:0.85rem;color:var(--p-text-sub);margin-bottom:12px;">もう一方の親の画面に表示された共有QRを読み取ってください</p>
+        <div id="shareChildReader"></div>
+        <button class="btn btn-secondary btn-block" style="margin-top:12px;" onclick="cancelExistingScan()">もどる</button>
+      </div>
+      <!-- ステップ2: QR表示（共通） -->
       <div id="addChildStep2" style="display:none;">
         <h2>📱 このQRをこどもに読み取ってもらおう</h2>
         <p style="font-size:0.85rem;color:var(--p-text-sub);margin-bottom:8px;text-align:center;" id="addChildInfo"></p>
         <div class="qr-display" id="childRegQRDisplay"></div>
-        <p style="font-size:0.8rem;color:var(--p-text-sub);text-align:center;margin:12px 0;">こどものアプリで「QRをよみとって登録」をタップしてね</p>
+        <p style="font-size:0.8rem;color:var(--p-text-sub);text-align:center;margin:12px 0;">こどものアプリでこのQRをスキャンしてね</p>
         <button class="btn btn-primary btn-block" onclick="closeAddChildModal()">閉じる</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ========== モーダル：こども共有QR表示 ========== -->
+  <div class="modal-overlay" id="shareChildModal">
+    <div class="modal" style="text-align:center;">
+      <h2>👨‍👩‍👧 こども情報を共有</h2>
+      <p style="font-size:0.85rem;color:var(--p-text-sub);margin-bottom:8px;" id="shareChildInfo"></p>
+      <div class="qr-display" id="shareChildQRDisplay"></div>
+      <p style="font-size:0.8rem;color:var(--p-text-sub);margin:12px 0;">もう一方の親の「べつの親から共有されたこども」でこのQRをスキャンしてもらってね</p>
+      <button class="btn btn-primary btn-block" onclick="closeShareChildModal()">閉じる</button>
     </div>
   </div>
 
@@ -166,7 +195,7 @@
     </div>
   </div>
 
-  <!-- ========== トースト ========== -->
+  <!-- トースト -->
   <div class="toast" id="toast"></div>
 
   <!-- CDN Libraries -->
@@ -176,6 +205,7 @@
       document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>');
     }
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <!-- App Scripts -->
   <script src="js/crypto.js"></script>
   <script src="js/storage.js"></script>
