@@ -1,6 +1,7 @@
-// parent.js - 親アプリのメインロジック（複数親対応）
+// parent.js - 親アプリ（バッチ送信・再送対応）
 
 const CHILD_AVATARS = ['🦁','🐱','🐶','🐰','🦊','🐼','🐸','🐧','🦄','🐲','🌟','🚀'];
+const MAX_BATCH = 10;
 
 let parentData = null;
 let selectedChildId = null;
@@ -8,425 +9,348 @@ let selectedChoreId = null;
 let currentAmount = 0;
 let selectedAvatar = CHILD_AVATARS[0];
 let shareScanner = null;
+let importScanner = null;
 
-// ========== 初期化 ==========
+// ===== 初期化 =====
 document.addEventListener('DOMContentLoaded', () => {
   parentData = Store.getParentData();
-  if (!parentData) {
-    document.getElementById('setupScreen').style.display = 'flex';
-    document.getElementById('appScreen').style.display = 'none';
-  } else {
-    showApp();
-  }
+  if (!parentData) { show('setupScreen'); hide('appScreen'); }
+  else { parentData = Store.migrateParentData(parentData); showApp(); }
 });
 
-// ========== 親セットアップ ==========
 function completeParentSetup() {
-  const name = document.getElementById('setupParentName').value.trim();
-  if (!name) { showToast('名前を入力してください', 'error'); return; }
-  Store.setRole('parent');
-  parentData = Store.initParent(name);
-  showApp();
+  const n = document.getElementById('setupParentName').value.trim();
+  if (!n) { toast('名前を入力してください','error'); return; }
+  Store.setRole('parent'); parentData = Store.initParent(n); showApp();
 }
+function showApp() { hide('setupScreen'); show('appScreen'); render(); }
 
-function showApp() {
-  document.getElementById('setupScreen').style.display = 'none';
-  document.getElementById('appScreen').style.display = 'block';
-  render();
-}
-
-// ========== 描画 ==========
-function render() {
-  renderChildren();
-  renderChores();
-  renderHistory();
-  renderSettings();
-}
+// ===== 描画 =====
+function render() { renderChildren(); renderChores(); renderPending(); renderHistory(); renderSettings(); }
 
 function renderChildren() {
-  const container = document.getElementById('childrenList');
-  if (parentData.children.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-icon">👶</div><p>まだこどもが登録されていません<br>下のボタンから追加しよう</p></div>';
-    document.getElementById('choreSection').style.display = 'none';
-    return;
+  const c = document.getElementById('childrenList');
+  if (!parentData.children.length) {
+    c.innerHTML = '<div class="empty-state"><div class="empty-icon">👶</div><p>まだこどもが登録されていません</p></div>';
+    hide('choreSection'); return;
   }
-  container.innerHTML = parentData.children.map(child => `
-    <div class="card child-card ${selectedChildId === child.childId ? 'selected' : ''}" onclick="selectChild('${child.childId}')">
-      <div class="child-avatar">${child.avatar}</div>
-      <div class="child-info">
-        <div class="child-name">${escHtml(child.name)}</div>
-        <div class="child-balance">送った合計: ${child.expectedBalance}円（${child.sentHistory.length}回）</div>
-      </div>
+  c.innerHTML = parentData.children.map(ch => `
+    <div class="card child-card ${selectedChildId===ch.childId?'selected':''}" onclick="selectChild('${ch.childId}')">
+      <div class="child-avatar">${ch.avatar}</div>
+      <div class="child-info"><div class="child-name">${esc(ch.name)}</div>
+        <div class="child-balance">送った合計: ${ch.expectedBalance}円（${ch.sentHistory.length}回）</div></div>
       <div class="child-arrow">›</div>
-    </div>
-  `).join('');
+    </div>`).join('');
 }
 
 function renderChores() {
-  const grid = document.getElementById('choreGrid');
-  const allChores = [...parentData.choreTemplates, ...parentData.customChores];
-  grid.innerHTML = allChores.map(chore => `
-    <div class="chore-item ${selectedChoreId === chore.id ? 'selected' : ''}" onclick="selectChore('${chore.id}')">
-      <div class="chore-icon">${chore.icon}</div>
-      <div class="chore-name">${escHtml(chore.name)}</div>
-      <div class="chore-amount">${chore.amount}円</div>
-    </div>
-  `).join('');
+  document.getElementById('choreGrid').innerHTML = parentData.chores.map(ch => `
+    <div class="chore-item ${selectedChoreId===ch.id?'selected':''}" onclick="selectChore('${ch.id}')">
+      <div class="chore-icon">${ch.icon}</div><div class="chore-name">${esc(ch.name)}</div><div class="chore-amount">${ch.amount}円</div>
+    </div>`).join('');
+}
+
+function renderPending() {
+  const child = getSelectedChild();
+  const sec = document.getElementById('pendingSection');
+  if (!child || !child.pending || !child.pending.length) { hide('pendingSection'); return; }
+  show('pendingSection');
+  document.getElementById('pendingList').innerHTML = child.pending.map((p, i) => `
+    <div class="pending-item">
+      <input type="checkbox" id="pchk${i}" checked onchange="updatePendingCount()">
+      <span style="font-size:1.3rem;">${p.icon}</span>
+      <div class="item-info"><div style="font-weight:600;">${esc(p.chore)}</div></div>
+      <div class="item-amount">${p.amount}円</div>
+      <button class="item-remove" onclick="removePending(${i})">✕</button>
+    </div>`).join('');
+  updatePendingCount();
+}
+
+function updatePendingCount() {
+  const child = getSelectedChild();
+  if (!child || !child.pending) return;
+  const checked = getCheckedPendingIndices();
+  const total = checked.reduce((s, i) => s + child.pending[i].amount, 0);
+  document.getElementById('pendingCheckCount').textContent =
+    `${checked.length}件選択中（合計 ${total}円）${checked.length > MAX_BATCH ? ' ⚠️ 最大'+MAX_BATCH+'件まで' : ''}`;
+}
+
+function getCheckedPendingIndices() {
+  const child = getSelectedChild();
+  if (!child || !child.pending) return [];
+  const indices = [];
+  child.pending.forEach((_, i) => { if (document.getElementById('pchk'+i)?.checked) indices.push(i); });
+  return indices;
 }
 
 function renderHistory() {
-  const container = document.getElementById('historyList');
-  const allHistory = [];
-  parentData.children.forEach(child => {
-    child.sentHistory.forEach(h => allHistory.push({ ...h, childName: child.name, childAvatar: child.avatar }));
+  const c = document.getElementById('historyList');
+  const all = [];
+  parentData.children.forEach(ch => ch.sentHistory.forEach(h => all.push({...h, childName:ch.name, childAvatar:ch.avatar, childId:ch.childId})));
+  all.sort((a,b) => b.timestamp - a.timestamp);
+  if (!all.length) { c.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>まだ送信りれきがありません</p></div>'; hide('resendBtn'); return; }
+  c.innerHTML = `<div class="card">${all.map((h,i) => `
+    <div class="history-check-item">
+      <input type="checkbox" id="hchk${i}" data-child="${h.childId}" data-seq="${h.seq}" data-ts="${h.timestamp}" onchange="updateHistoryCount()">
+      <div class="history-icon">${h.icon||'⭐'}</div>
+      <div class="item-info"><div style="font-weight:600;">${esc(h.chore)}</div>
+        <div style="font-size:0.78rem;color:var(--p-text-sub);">${h.childAvatar} ${esc(h.childName)} · ${fmtDate(h.timestamp)}</div></div>
+      <div class="item-amount">+${h.amount}円</div>
+    </div>`).join('')}</div>`;
+  updateHistoryCount();
+}
+
+function updateHistoryCount() {
+  const checked = getCheckedHistoryItems();
+  const el = document.getElementById('historyCheckCount');
+  const btn = document.getElementById('resendBtn');
+  if (!checked.length) { el.textContent = ''; btn.style.display = 'none'; return; }
+  // 同一子チェック
+  const childIds = [...new Set(checked.map(c => c.childId))];
+  const total = checked.reduce((s, c) => s + c.amount, 0);
+  let warn = '';
+  if (childIds.length > 1) warn = ' ⚠️ 再送は同じこどもの分だけ選んでください';
+  else if (checked.length > MAX_BATCH) warn = ' ⚠️ 最大'+MAX_BATCH+'件まで';
+  el.textContent = `${checked.length}件選択中（合計 ${total}円）${warn}`;
+  btn.style.display = (childIds.length === 1 && checked.length <= MAX_BATCH) ? 'flex' : 'none';
+}
+
+function getCheckedHistoryItems() {
+  const items = [];
+  document.querySelectorAll('[id^="hchk"]').forEach(el => {
+    if (!el.checked) return;
+    const childId = el.dataset.child;
+    const seq = parseInt(el.dataset.seq);
+    const ts = parseInt(el.dataset.ts);
+    // 実データから取得
+    parentData.children.forEach(ch => {
+      if (ch.childId !== childId) return;
+      const h = ch.sentHistory.find(x => x.seq === seq && x.timestamp === ts);
+      if (h) items.push({...h, childId});
+    });
   });
-  allHistory.sort((a, b) => b.timestamp - a.timestamp);
-  if (allHistory.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>まだ送信りれきがありません</p></div>';
-    return;
-  }
-  container.innerHTML = `<div class="card">${allHistory.map(h => `
-    <div class="history-item">
-      <div class="history-icon">${h.icon || '⭐'}</div>
-      <div class="history-info">
-        <div class="history-chore">${escHtml(h.chore)}</div>
-        <div class="history-meta">${h.childAvatar} ${escHtml(h.childName)} · ${formatDate(h.timestamp)}</div>
-      </div>
-      <div class="history-amount">+${h.amount}円</div>
-    </div>
-  `).join('')}</div>`;
+  return items;
 }
 
 function renderSettings() {
   document.getElementById('parentNameDisplay').textContent = parentData.parentName;
   document.getElementById('parentIdDisplay').textContent = parentData.parentId;
-
-  const childList = document.getElementById('settingsChildrenList');
-  if (parentData.children.length === 0) {
-    childList.innerHTML = '<p style="color:var(--p-text-sub);font-size:0.9rem;">登録なし</p>';
-  } else {
-    childList.innerHTML = parentData.children.map((child, i) => `
-      <div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
-        <span style="font-size:1.5rem;">${child.avatar}</span>
-        <span style="flex:1;font-weight:700;">${escHtml(child.name)}</span>
-        <span style="font-size:0.8rem;color:var(--p-text-sub);">累計 ${child.expectedBalance}円</span>
-        <div style="width:100%;display:flex;gap:8px;margin-top:4px;">
-          <button class="btn btn-secondary" style="flex:1;padding:8px;font-size:0.8rem;" onclick="openShareChildModal(${i})">👨‍👩‍👧 共有</button>
-          <button class="btn btn-danger" style="padding:8px;font-size:0.8rem;" onclick="removeChild(${i})">削除</button>
-        </div>
+  const cl = document.getElementById('settingsChildrenList');
+  if (!parentData.children.length) { cl.innerHTML = '<p style="color:var(--p-text-sub);font-size:0.9rem;">登録なし</p>'; }
+  else { cl.innerHTML = parentData.children.map((ch,i) => `
+    <div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+      <span style="font-size:1.5rem;">${ch.avatar}</span>
+      <span style="flex:1;font-weight:700;">${esc(ch.name)}</span>
+      <span style="font-size:0.8rem;color:var(--p-text-sub);">累計 ${ch.expectedBalance}円</span>
+      <div style="width:100%;display:flex;gap:8px;margin-top:4px;">
+        <button class="btn btn-secondary" style="flex:1;padding:8px;font-size:0.8rem;" onclick="openShareChildModal(${i})">👨‍👩‍👧 共有</button>
+        <button class="btn btn-secondary" style="flex:1;padding:8px;font-size:0.8rem;" onclick="openRestoreChildModal(${i})">🔄 復元</button>
+        <button class="btn btn-danger" style="padding:8px;font-size:0.8rem;" onclick="removeChild(${i})">削除</button>
       </div>
-    `).join('');
-  }
-
-  const choreList = document.getElementById('settingsChoreList');
-  const customs = parentData.customChores || [];
-  if (customs.length === 0) {
-    choreList.innerHTML = '<p style="color:var(--p-text-sub);font-size:0.9rem;">カスタム項目なし</p>';
-  } else {
-    choreList.innerHTML = customs.map((ch, i) => `
-      <div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-        <span style="font-size:1.3rem;">${ch.icon}</span>
-        <span style="flex:1;font-weight:600;">${escHtml(ch.name)}</span>
-        <span style="font-size:0.85rem;color:var(--p-text-sub);">${ch.amount}円</span>
-        <button class="header-btn" onclick="removeCustomChore(${i})" style="color:var(--p-danger);">✕</button>
-      </div>
-    `).join('');
-  }
+    </div>`).join(''); }
+  const chl = document.getElementById('settingsChoreList');
+  if (!parentData.chores.length) { chl.innerHTML = '<p style="color:var(--p-text-sub);font-size:0.9rem;">テンプレートなし</p>'; }
+  else { chl.innerHTML = parentData.chores.map((ch,i) => `
+    <div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <span style="font-size:1.3rem;">${ch.icon}</span><span style="flex:1;font-weight:600;">${esc(ch.name)}</span>
+      <span style="font-size:0.85rem;color:var(--p-text-sub);">${ch.amount}円</span>
+      <button class="header-btn" onclick="openEditChoreModal(${i})" style="color:var(--p-primary);">✎</button>
+      <button class="header-btn" onclick="removeChore(${i})" style="color:var(--p-danger);">✕</button>
+    </div>`).join(''); }
 }
 
-// ========== 子供選択 & お手伝い選択 ==========
-function selectChild(childId) {
-  selectedChildId = childId;
-  selectedChoreId = null;
-  currentAmount = 0;
-  document.getElementById('choreSection').style.display = 'block';
-  const child = parentData.children.find(c => c.childId === childId);
-  document.getElementById('choreSectionTitle').textContent = `🧹 ${child.name}のおてつだいを選ぶ`;
-  document.getElementById('amountSection').style.display = 'none';
-  render();
-  document.getElementById('choreSection').scrollIntoView({ behavior: 'smooth' });
+// ===== 子供選択 & お手伝い =====
+function selectChild(id) {
+  selectedChildId = id; selectedChoreId = null; currentAmount = 0;
+  show('choreSection');
+  document.getElementById('choreSectionTitle').textContent = `🧹 ${getSelectedChild().name}のおてつだいを選ぶ`;
+  hide('amountSection'); render();
+  document.getElementById('choreSection').scrollIntoView({behavior:'smooth'});
 }
-
-function selectChore(choreId) {
-  selectedChoreId = choreId;
-  const allChores = [...parentData.choreTemplates, ...parentData.customChores];
-  const chore = allChores.find(c => c.id === choreId);
-  if (chore) {
-    currentAmount = chore.amount;
-    document.getElementById('amountValue').textContent = currentAmount;
-    document.getElementById('amountSection').style.display = 'block';
-  }
+function selectChore(id) {
+  selectedChoreId = id;
+  const ch = parentData.chores.find(c=>c.id===id);
+  if(ch){currentAmount=ch.amount;document.getElementById('amountValue').textContent=currentAmount;show('amountSection');}
   renderChores();
 }
+function adjustAmount(d){currentAmount=Math.max(10,currentAmount+d);document.getElementById('amountValue').textContent=currentAmount;}
+function getSelectedChild(){return parentData.children.find(c=>c.childId===selectedChildId);}
 
-function adjustAmount(delta) {
-  currentAmount = Math.max(10, currentAmount + delta);
-  document.getElementById('amountValue').textContent = currentAmount;
-}
-
-// ========== 報酬QR生成 ==========
+// ===== すぐ送る（単品QR） =====
 async function generateRewardQR() {
-  if (!selectedChildId || !selectedChoreId || currentAmount <= 0) {
-    showToast('子ども・お手伝い・金額を選んでください', 'error');
-    return;
-  }
-  const child = parentData.children.find(c => c.childId === selectedChildId);
-  const allChores = [...parentData.choreTemplates, ...parentData.customChores];
-  const chore = allChores.find(c => c.id === selectedChoreId);
-  if (!child || !chore) return;
+  if(!selectedChildId||!selectedChoreId||currentAmount<=0){toast('子ども・お手伝い・金額を選んでください','error');return;}
+  const child=getSelectedChild(), chore=parentData.chores.find(c=>c.id===selectedChoreId);
+  if(!child||!chore)return;
+  const item = await addToSentHistory(child, chore.name, chore.icon, currentAmount);
+  const qr = { t:'rwd', pid:parentData.parentId, pn:parentData.parentName, cid:child.childId,
+    ch:chore.name, ci:chore.icon, amt:currentAmount, ts:item.timestamp, seq:item.seq, eb:child.expectedBalance, h:item.hash };
+  showRewardQRModal(`<div>${child.avatar} ${esc(child.name)}</div><div style="margin-top:4px;">${chore.icon} ${esc(chore.name)}</div><div class="reward-amount" style="margin-top:8px;">${currentAmount}円</div>`, qr);
+  selectedChoreId=null; currentAmount=0; hide('amountSection'); render();
+}
 
-  const seq = child.sentHistory.length + 1;
-  const timestamp = Date.now();
-  const newExpectedBalance = child.expectedBalance + currentAmount;
-  const hash = await OteCrypto.createRewardHash(parentData.parentId, child.childId, currentAmount, timestamp, seq, parentData.secret);
-
-  const qrData = {
-    t: 'rwd', pid: parentData.parentId, pn: parentData.parentName,
-    cid: child.childId, ch: chore.name, ci: chore.icon,
-    amt: currentAmount, ts: timestamp, seq: seq, eb: newExpectedBalance, h: hash
-  };
-
-  child.sentHistory.push({ chore: chore.name, icon: chore.icon, amount: currentAmount, timestamp, seq, hash });
-  child.expectedBalance = newExpectedBalance;
+// ===== あとで送る（ストック追加） =====
+function addToPending() {
+  if(!selectedChildId||!selectedChoreId||currentAmount<=0){toast('子ども・お手伝い・金額を選んでください','error');return;}
+  const child=getSelectedChild(), chore=parentData.chores.find(c=>c.id===selectedChoreId);
+  if(!child||!chore)return;
+  if(!child.pending) child.pending=[];
+  child.pending.push({chore:chore.name, icon:chore.icon, amount:currentAmount, addedAt:Date.now()});
   Store.setParentData(parentData);
-
-  document.getElementById('rewardSummary').innerHTML = `
-    <div>${child.avatar} <span class="reward-child">${escHtml(child.name)}</span></div>
-    <div style="margin-top:4px;">${chore.icon} ${escHtml(chore.name)}</div>
-    <div class="reward-amount" style="margin-top:8px;">${currentAmount}円</div>`;
-  document.getElementById('rewardQRModal').classList.add('active');
-  setTimeout(() => QR.generate('rewardQRDisplay', qrData, 200), 100);
-
-  selectedChoreId = null; currentAmount = 0;
-  document.getElementById('amountSection').style.display = 'none';
-  render();
+  toast(`📥 ${chore.icon} ${chore.name}をストックに追加`,'success');
+  selectedChoreId=null; currentAmount=0; hide('amountSection'); render();
 }
 
-function closeRewardQRModal() {
-  document.getElementById('rewardQRModal').classList.remove('active');
-  document.getElementById('rewardQRDisplay').innerHTML = '';
+function removePending(i) {
+  const child=getSelectedChild(); if(!child)return;
+  child.pending.splice(i,1);
+  Store.setParentData(parentData); render();
 }
 
-// ========== こども追加モーダル ==========
-function openAddChildModal() {
-  hideAllAddChildSteps();
-  document.getElementById('addChildStep0').style.display = 'block';
-  document.getElementById('addChildModal').classList.add('active');
-}
+// ===== バッチQR生成（ストックor履歴から） =====
+async function generateBatchQR(source) {
+  const child = getSelectedChild();
+  let items = [];
 
-function closeAddChildModal() {
-  document.getElementById('addChildModal').classList.remove('active');
-  document.getElementById('childRegQRDisplay').innerHTML = '';
-  QR.stopScanner(shareScanner); shareScanner = null;
-  document.getElementById('shareChildReader').innerHTML = '';
-}
-
-function backToStep0() {
-  hideAllAddChildSteps();
-  document.getElementById('addChildStep0').style.display = 'block';
-  QR.stopScanner(shareScanner); shareScanner = null;
-  document.getElementById('shareChildReader').innerHTML = '';
-}
-
-function hideAllAddChildSteps() {
-  ['addChildStep0','addChildStep1New','addChildStep1Existing','addChildStep2'].forEach(id => {
-    document.getElementById(id).style.display = 'none';
-  });
-}
-
-// --- 新規こども ---
-function showAddChildNew() {
-  selectedAvatar = CHILD_AVATARS[0];
-  document.getElementById('newChildName').value = '';
-  hideAllAddChildSteps();
-  document.getElementById('addChildStep1New').style.display = 'block';
-  renderAvatarPicker();
-}
-
-function renderAvatarPicker() {
-  const picker = document.getElementById('childAvatarPicker');
-  picker.innerHTML = CHILD_AVATARS.map(a => `
-    <div style="font-size:1.8rem;width:48px;height:48px;display:flex;align-items:center;justify-content:center;
-                background:${a === selectedAvatar ? 'var(--p-primary-light)' : 'var(--p-surface)'};
-                border:2px solid ${a === selectedAvatar ? 'var(--p-primary)' : 'var(--p-border)'};
-                border-radius:50%;cursor:pointer;" onclick="pickChildAvatar('${a}')">${a}</div>
-  `).join('');
-}
-
-function pickChildAvatar(avatar) {
-  selectedAvatar = avatar;
-  renderAvatarPicker();
-}
-
-function generateChildRegQR() {
-  const name = document.getElementById('newChildName').value.trim();
-  if (!name) { showToast('名前を入力してください', 'error'); return; }
-
-  let childId, attempts = 0;
-  do { childId = OteCrypto.generateId('c'); attempts++; }
-  while (parentData.children.some(c => c.childId === childId) && attempts < 100);
-
-  const familyToken = OteCrypto.generateSecret().substring(0, 32);
-
-  parentData.children.push({
-    childId, name, avatar: selectedAvatar, familyToken,
-    registeredAt: new Date().toISOString(), sentHistory: [], expectedBalance: 0
-  });
-  Store.setParentData(parentData);
-
-  showRegQR(childId, name, selectedAvatar, familyToken);
-  render();
-}
-
-// --- 既存こども（共有QRスキャン） ---
-function showAddChildExisting() {
-  hideAllAddChildSteps();
-  document.getElementById('addChildStep1Existing').style.display = 'block';
-  setTimeout(async () => {
-    try {
-      shareScanner = await QR.startScanner('shareChildReader', onShareChildScanned, (err) => {
-        showToast(err, 'error');
-        backToStep0();
-      });
-    } catch (e) {
-      showToast('カメラの起動に失敗しました', 'error');
-      backToStep0();
+  if (source === 'pending') {
+    if(!child||!child.pending) return;
+    const indices = getCheckedPendingIndices();
+    if(!indices.length){toast('送信する項目を選んでください','error');return;}
+    if(indices.length > MAX_BATCH){toast(`最大${MAX_BATCH}件までです`,'error');return;}
+    // pendingからsentHistoryに移動
+    const pendingItems = indices.map(i => child.pending[i]);
+    const sentItems = [];
+    for(const p of pendingItems){
+      sentItems.push(await addToSentHistory(child, p.chore, p.icon, p.amount));
     }
-  }, 300);
-}
-
-function cancelExistingScan() {
-  QR.stopScanner(shareScanner); shareScanner = null;
-  document.getElementById('shareChildReader').innerHTML = '';
-  backToStep0();
-}
-
-function onShareChildScanned(data) {
-  QR.stopScanner(shareScanner); shareScanner = null;
-  document.getElementById('shareChildReader').innerHTML = '';
-
-  if (data.t !== 'share') {
-    showToast('これは共有QRではありません', 'error');
-    backToStep0();
-    return;
+    // pending から削除（逆順）
+    indices.sort((a,b)=>b-a).forEach(i => child.pending.splice(i,1));
+    Store.setParentData(parentData);
+    items = sentItems;
+  } else if (source === 'history') {
+    const checked = getCheckedHistoryItems();
+    if(!checked.length){toast('再送する項目を選んでください','error');return;}
+    if(checked.length > MAX_BATCH){toast(`最大${MAX_BATCH}件までです`,'error');return;}
+    const childIds = [...new Set(checked.map(c=>c.childId))];
+    if(childIds.length > 1){toast('再送は同じこどもの分だけ選んでください','error');return;}
+    items = checked;
   }
 
-  if (parentData.children.some(c => c.childId === data.cid)) {
-    showToast(`${data.n}はすでに登録されています`, 'error');
-    closeAddChildModal();
-    return;
-  }
+  if(!items.length) return;
+  const targetChild = (source==='history') ? parentData.children.find(c=>c.childId===items[0].childId) : child;
+  const total = items.reduce((s,it)=>s+it.amount,0);
+  const batchHash = await OteCrypto.sha256(items.map(it=>`${it.seq}:${it.amount}`).join(',')+parentData.secret);
 
-  parentData.children.push({
-    childId: data.cid, name: data.n, avatar: data.a, familyToken: data.ft,
-    registeredAt: new Date().toISOString(), sentHistory: [], expectedBalance: 0
-  });
-  Store.setParentData(parentData);
-
-  showToast(`${data.a} ${data.n}の情報を取得しました`, 'success');
-  showRegQR(data.cid, data.n, data.a, data.ft);
-  render();
-}
-
-// --- 共通：登録QR表示 ---
-function showRegQR(childId, name, avatar, familyToken) {
-  hideAllAddChildSteps();
-  document.getElementById('addChildStep2').style.display = 'block';
-  document.getElementById('addChildInfo').textContent = `${avatar} ${name} の登録QR`;
-
-  const qrData = {
-    t: 'reg', pid: parentData.parentId, pn: parentData.parentName,
-    cid: childId, n: name, a: avatar, ft: familyToken
+  const qr = {
+    t:'batch', pid:parentData.parentId, pn:parentData.parentName, cid:targetChild.childId,
+    items: items.map(it=>({ch:it.chore, ci:it.icon, amt:it.amount, seq:it.seq, ts:it.timestamp})),
+    h: batchHash
   };
-  setTimeout(() => QR.generate('childRegQRDisplay', qrData, 200), 100);
-}
 
-// ========== こども共有QR ==========
-function openShareChildModal(index) {
-  const child = parentData.children[index];
-  document.getElementById('shareChildInfo').textContent = `${child.avatar} ${child.name} の情報を共有`;
-
-  const qrData = {
-    t: 'share', cid: child.childId, n: child.name, a: child.avatar, ft: child.familyToken
-  };
-  document.getElementById('shareChildModal').classList.add('active');
-  setTimeout(() => QR.generate('shareChildQRDisplay', qrData, 200), 100);
-}
-
-function closeShareChildModal() {
-  document.getElementById('shareChildModal').classList.remove('active');
-  document.getElementById('shareChildQRDisplay').innerHTML = '';
-}
-
-// ========== カスタムお手伝い ==========
-function openAddChoreModal() {
-  document.getElementById('newChoreIcon').value = '⭐';
-  document.getElementById('newChoreName').value = '';
-  document.getElementById('newChoreAmount').value = '100';
-  document.getElementById('addChoreModal').classList.add('active');
-}
-function closeAddChoreModal() { document.getElementById('addChoreModal').classList.remove('active'); }
-
-function addCustomChore() {
-  const icon = document.getElementById('newChoreIcon').value.trim() || '⭐';
-  const name = document.getElementById('newChoreName').value.trim();
-  const amount = parseInt(document.getElementById('newChoreAmount').value) || 100;
-  if (!name) { showToast('名前を入力してください', 'error'); return; }
-  if (!parentData.customChores) parentData.customChores = [];
-  parentData.customChores.push({ id: 'c_' + Date.now(), name, icon, amount: Math.max(10, amount) });
-  Store.setParentData(parentData);
-  closeAddChoreModal();
-  showToast(`${icon} ${name}を追加しました`, 'success');
+  const summaryHtml = `<div>${targetChild.avatar} ${esc(targetChild.name)}</div>` +
+    items.map(it => `<div style="display:flex;justify-content:space-between;margin-top:4px;font-size:0.9rem;"><span>${it.icon} ${esc(it.chore)}</span><span>${it.amount}円</span></div>`).join('') +
+    `<div class="reward-amount" style="margin-top:8px;border-top:1px solid var(--p-border);padding-top:8px;">合計 ${total}円</div>`;
+  showRewardQRModal(summaryHtml, qr, source==='history' ? '🔄 再送QR' : '📦 まとめてQR');
   render();
 }
 
-function removeCustomChore(i) {
-  if (!confirm('削除しますか？')) return;
-  parentData.customChores.splice(i, 1);
+async function addToSentHistory(child, chore, icon, amount) {
+  const seq = child.sentHistory.length + 1;
+  const ts = Date.now();
+  const hash = await OteCrypto.createRewardHash(parentData.parentId, child.childId, amount, ts, seq, parentData.secret);
+  child.expectedBalance += amount;
+  const entry = {chore, icon, amount, timestamp:ts, seq, hash};
+  child.sentHistory.push(entry);
   Store.setParentData(parentData);
-  render();
+  return entry;
 }
 
-// ========== 子供削除 ==========
-function removeChild(i) {
-  const child = parentData.children[i];
-  if (!confirm(`${child.name}を削除しますか？`)) return;
-  parentData.children.splice(i, 1);
-  if (selectedChildId === child.childId) {
-    selectedChildId = null;
-    document.getElementById('choreSection').style.display = 'none';
-  }
-  Store.setParentData(parentData);
-  render();
+function showRewardQRModal(summaryHtml, qrData, title) {
+  document.getElementById('rewardQRTitle').textContent = title || '🎁 ごほうびQR';
+  document.getElementById('rewardSummary').innerHTML = `<div class="reward-summary">${summaryHtml}</div>`;
+  document.getElementById('rewardQRModal').classList.add('active');
+  setTimeout(()=>QR.generate('rewardQRDisplay', qrData, 220), 100);
+}
+function closeRewardQRModal(){document.getElementById('rewardQRModal').classList.remove('active');document.getElementById('rewardQRDisplay').innerHTML='';}
+
+// ===== こども追加 =====
+function openAddChildModal(){hideAllSteps();show('addChildStep0');document.getElementById('addChildModal').classList.add('active');}
+function closeAddChildModal(){document.getElementById('addChildModal').classList.remove('active');document.getElementById('childRegQRDisplay').innerHTML='';QR.stopScanner(shareScanner);shareScanner=null;document.getElementById('shareChildReader').innerHTML='';}
+function backToStep0(){hideAllSteps();show('addChildStep0');QR.stopScanner(shareScanner);shareScanner=null;document.getElementById('shareChildReader').innerHTML='';}
+function hideAllSteps(){['addChildStep0','addChildStep1New','addChildStep1Existing','addChildStep2'].forEach(hide);}
+
+function showAddChildNew(){selectedAvatar=CHILD_AVATARS[0];document.getElementById('newChildName').value='';hideAllSteps();show('addChildStep1New');renderAvatarPicker();}
+function renderAvatarPicker(){document.getElementById('childAvatarPicker').innerHTML=CHILD_AVATARS.map(a=>`<div style="font-size:1.8rem;width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:${a===selectedAvatar?'var(--p-primary-light)':'var(--p-surface)'};border:2px solid ${a===selectedAvatar?'var(--p-primary)':'var(--p-border)'};border-radius:50%;cursor:pointer;" onclick="pickChildAvatar('${a}')">${a}</div>`).join('');}
+function pickChildAvatar(a){selectedAvatar=a;renderAvatarPicker();}
+
+function generateChildRegQR(){
+  const name=document.getElementById('newChildName').value.trim();
+  if(!name){toast('名前を入力してください','error');return;}
+  let cid,att=0; do{cid=OteCrypto.generateId('c');att++;}while(parentData.children.some(c=>c.childId===cid)&&att<100);
+  const ft=OteCrypto.generateSecret().substring(0,32);
+  parentData.children.push({childId:cid,name,avatar:selectedAvatar,familyToken:ft,registeredAt:new Date().toISOString(),sentHistory:[],expectedBalance:0,pending:[]});
+  Store.setParentData(parentData); showRegQR(cid,name,selectedAvatar,ft); render();
 }
 
-// ========== その他 ==========
-function confirmReset() {
-  if (!confirm('すべてのデータを削除しますか？')) return;
-  if (!confirm('本当に削除しますか？')) return;
-  Store.clearAll();
-  location.href = 'index.html';
+function showAddChildExisting(){hideAllSteps();show('addChildStep1Existing');
+  setTimeout(async()=>{try{shareScanner=await QR.startScanner('shareChildReader',onShareChildScanned,e=>{toast(e,'error');backToStep0();});}catch(e){toast('カメラ起動失敗','error');backToStep0();}},300);}
+function cancelExistingScan(){QR.stopScanner(shareScanner);shareScanner=null;document.getElementById('shareChildReader').innerHTML='';backToStep0();}
+
+function onShareChildScanned(data){
+  QR.stopScanner(shareScanner);shareScanner=null;document.getElementById('shareChildReader').innerHTML='';
+  if(data.t!=='share'){toast('共有QRではありません','error');backToStep0();return;}
+  if(parentData.children.some(c=>c.childId===data.cid)){toast(`${data.n}は登録済み`,'error');closeAddChildModal();return;}
+  parentData.children.push({childId:data.cid,name:data.n,avatar:data.a,familyToken:data.ft,registeredAt:new Date().toISOString(),sentHistory:[],expectedBalance:0,pending:[]});
+  Store.setParentData(parentData); toast(`${data.a} ${data.n}を取得`,'success'); showRegQR(data.cid,data.n,data.a,data.ft); render();
 }
 
-function showTab(tab) {
-  ['home','history','settings'].forEach(t => {
-    document.getElementById('tab-' + t).style.display = (t === tab) ? 'block' : 'none';
-    const btn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
-    if (btn) btn.classList.toggle('active', t === tab);
-  });
-  if (tab === 'history') renderHistory();
-  if (tab === 'settings') renderSettings();
-}
+function showRegQR(cid,n,a,ft){hideAllSteps();show('addChildStep2');document.getElementById('addChildInfo').textContent=`${a} ${n} の登録QR`;
+  setTimeout(()=>QR.generate('childRegQRDisplay',{t:'reg',pid:parentData.parentId,pn:parentData.parentName,cid,n,a,ft},200),100);}
 
-function showToast(msg, type = 'success') {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.className = `toast toast-${type} show`;
-  setTimeout(() => el.classList.remove('show'), 2500);
-}
+// ===== 共有・復元 =====
+function openShareChildModal(i){const ch=parentData.children[i];document.getElementById('shareChildInfo').textContent=`${ch.avatar} ${ch.name}`;
+  document.getElementById('shareChildModal').classList.add('active');setTimeout(()=>QR.generate('shareChildQRDisplay',{t:'share',cid:ch.childId,n:ch.name,a:ch.avatar,ft:ch.familyToken},200),100);}
+function closeShareChildModal(){document.getElementById('shareChildModal').classList.remove('active');document.getElementById('shareChildQRDisplay').innerHTML='';}
 
-function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-function formatDate(ts) {
-  const d = new Date(ts);
-  return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+function openRestoreChildModal(i){const ch=parentData.children[i];document.getElementById('restoreChildInfo').textContent=`${ch.avatar} ${ch.name}（残高: ${ch.expectedBalance}円）`;
+  document.getElementById('restoreChildModal').classList.add('active');setTimeout(()=>QR.generate('restoreChildQRDisplay',{t:'restore',pid:parentData.parentId,pn:parentData.parentName,cid:ch.childId,n:ch.name,a:ch.avatar,ft:ch.familyToken,bal:ch.expectedBalance},200),100);}
+function closeRestoreChildModal(){document.getElementById('restoreChildModal').classList.remove('active');document.getElementById('restoreChildQRDisplay').innerHTML='';}
+
+// ===== テンプレ管理 =====
+function openAddChoreModal(){document.getElementById('editChoreTitle').textContent='✏️ お手伝いを追加';document.getElementById('editChoreId').value='';document.getElementById('editChoreIcon').value='⭐';document.getElementById('editChoreName').value='';document.getElementById('editChoreAmount').value='100';document.getElementById('editChoreModal').classList.add('active');}
+function openEditChoreModal(i){const ch=parentData.chores[i];document.getElementById('editChoreTitle').textContent='✏️ お手伝いを編集';document.getElementById('editChoreId').value=i;document.getElementById('editChoreIcon').value=ch.icon;document.getElementById('editChoreName').value=ch.name;document.getElementById('editChoreAmount').value=ch.amount;document.getElementById('editChoreModal').classList.add('active');}
+function closeEditChoreModal(){document.getElementById('editChoreModal').classList.remove('active');}
+function saveChore(){
+  const icon=document.getElementById('editChoreIcon').value.trim()||'⭐',name=document.getElementById('editChoreName').value.trim(),amount=parseInt(document.getElementById('editChoreAmount').value)||100;
+  if(!name){toast('名前を入力してください','error');return;}
+  const idx=document.getElementById('editChoreId').value;
+  if(idx===''){parentData.chores.push({id:'ch_'+Date.now(),name,icon,amount:Math.max(10,amount)});toast(`${icon} ${name}を追加`,'success');}
+  else{const i=parseInt(idx);parentData.chores[i].icon=icon;parentData.chores[i].name=name;parentData.chores[i].amount=Math.max(10,amount);toast(`${icon} ${name}を更新`,'success');}
+  Store.setParentData(parentData);closeEditChoreModal();render();
 }
+function removeChore(i){if(!confirm(`${parentData.chores[i].icon} ${parentData.chores[i].name} を削除？`))return;parentData.chores.splice(i,1);Store.setParentData(parentData);render();}
+
+function openShareChoresModal(){if(!parentData.chores.length){toast('テンプレートがありません','error');return;}
+  document.getElementById('shareChoresModal').classList.add('active');setTimeout(()=>QR.generate('shareChoresQRDisplay',{t:'chores',items:parentData.chores.map(c=>({n:c.name,i:c.icon,a:c.amount}))},250),100);}
+function closeShareChoresModal(){document.getElementById('shareChoresModal').classList.remove('active');document.getElementById('shareChoresQRDisplay').innerHTML='';}
+
+function openImportChoresModal(){document.getElementById('importChoresModal').classList.add('active');
+  setTimeout(async()=>{try{importScanner=await QR.startScanner('importChoresReader',onImportChoresScanned,e=>{toast(e,'error');closeImportChoresModal();});}catch(e){toast('カメラ起動失敗','error');closeImportChoresModal();}},300);}
+function closeImportChoresModal(){document.getElementById('importChoresModal').classList.remove('active');QR.stopScanner(importScanner);importScanner=null;document.getElementById('importChoresReader').innerHTML='';}
+function onImportChoresScanned(data){closeImportChoresModal();if(data.t!=='chores'||!Array.isArray(data.items)){toast('テンプレートQRではありません','error');return;}
+  let added=0;data.items.forEach(it=>{if(!parentData.chores.some(c=>c.name===it.n&&c.icon===it.i)){parentData.chores.push({id:'ch_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:it.n,icon:it.i,amount:it.a});added++;}});
+  Store.setParentData(parentData);toast(`${added}件インポート（重複スキップ）`,'success');render();}
+
+// ===== 子供削除 =====
+function removeChild(i){const ch=parentData.children[i];if(!confirm(`${ch.name}を削除？`))return;parentData.children.splice(i,1);
+  if(selectedChildId===ch.childId){selectedChildId=null;hide('choreSection');}Store.setParentData(parentData);render();}
+
+// ===== ユーティリティ =====
+function confirmReset(){if(!confirm('すべてのデータを削除しますか？'))return;if(!confirm('本当に？'))return;Store.clearAll();location.href='index.html';}
+function showTab(t){['home','history','settings'].forEach(x=>{document.getElementById('tab-'+x).style.display=(x===t)?'block':'none';
+  const b=document.getElementById('tab'+x.charAt(0).toUpperCase()+x.slice(1));if(b)b.classList.toggle('active',x===t);});
+  if(t==='history')renderHistory();if(t==='settings')renderSettings();}
+function show(id){const e=document.getElementById(id);if(e)e.style.display=e.dataset.display||'block';}
+function hide(id){const e=document.getElementById(id);if(e)e.style.display='none';}
+function toast(m,t='success'){const e=document.getElementById('toast');e.textContent=m;e.className=`toast toast-${t} show`;setTimeout(()=>e.classList.remove('show'),2500);}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function fmtDate(ts){const d=new Date(ts);return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;}

@@ -36,19 +36,20 @@ async function startSetupScan() {
 function onSetupScanned(data) {
   QR.stopScanner(setupScanner); setupScanner = null;
 
-  if (data.t !== 'reg') {
+  if (data.t !== 'reg' && data.t !== 'restore') {
     document.getElementById('setupStatus').textContent = 'これは登録用QRではありません。もう一度やりなおしてね。';
     return;
   }
 
+  const balance = data.bal || 0;
   Store.setRole('child');
   childData = {
     role: 'child',
     childId: data.cid,
     name: data.n,
     avatar: data.a || '⭐',
-    balance: 0,
-    totalEarned: 0,
+    balance: balance,
+    totalEarned: balance,
     level: 1,
     history: [],
     parents: [{ pid: data.pid, name: data.pn || '親' }],
@@ -57,7 +58,10 @@ function onSetupScanned(data) {
   };
   Store.setChildData(childData);
 
-  showToast(`${data.a || '⭐'} ${data.n} とうろくかんりょう！`, 'success');
+  const msg = data.t === 'restore'
+    ? `${data.a || '⭐'} ${data.n} を復元しました！（残高: ${balance}円）`
+    : `${data.a || '⭐'} ${data.n} とうろくかんりょう！`;
+  showToast(msg, 'success');
   showApp();
 }
 
@@ -174,34 +178,38 @@ function closeAddParentScan() {
 function onAddParentScanned(data) {
   closeAddParentScan();
 
-  if (data.t !== 'reg') {
+  if (data.t !== 'reg' && data.t !== 'restore') {
     showToast('これは登録用QRではありません', 'error');
     return;
   }
 
-  // childId一致チェック
   if (data.cid !== childData.childId) {
     showToast('このQRはべつのこども用です', 'error');
     return;
   }
 
-  // ファミリートークン検証
   if (data.ft !== childData.familyToken) {
     showToast('ファミリートークンが一致しません。正しい共有QRから登録してください。', 'error');
     return;
   }
 
-  // 重複チェック
   if (childData.parents.some(p => p.pid === data.pid)) {
     showToast(`${data.pn || '親'}はすでに登録されています`, 'error');
     return;
   }
 
-  // 親を追加
   childData.parents.push({ pid: data.pid, name: data.pn || '親' });
-  Store.setChildData(childData);
 
-  showToast(`${data.pn || '親'}を追加しました！`, 'success');
+  // 復元QRの場合は残高を加算
+  if (data.t === 'restore' && data.bal > 0) {
+    childData.balance += data.bal;
+    childData.totalEarned += data.bal;
+    showToast(`${data.pn || '親'}を追加し、${data.bal}円を復元しました！`, 'success');
+  } else {
+    showToast(`${data.pn || '親'}を追加しました！`, 'success');
+  }
+
+  Store.setChildData(childData);
   render();
 }
 
@@ -230,47 +238,82 @@ function closeScanRewardModal() {
 async function onRewardScanned(data) {
   closeScanRewardModal();
 
-  if (data.t !== 'rwd') {
-    showToast('ごほうびQRではありません', 'error');
-    return;
-  }
-  if (data.cid !== childData.childId) {
+  // childIdチェック（共通）
+  if (data.cid && data.cid !== childData.childId) {
     showToast('このQRはべつのこども用です', 'error');
     return;
   }
 
+  // 単品QR
+  if (data.t === 'rwd') {
+    return processRewardItems([{
+      ch: data.ch, ci: data.ci, amt: data.amt, seq: data.seq, ts: data.ts
+    }], data.pid, data.pn);
+  }
+
+  // バッチQR
+  if (data.t === 'batch' && Array.isArray(data.items)) {
+    return processRewardItems(data.items, data.pid, data.pn);
+  }
+
+  showToast('ごほうびQRではありません', 'error');
+}
+
+async function processRewardItems(items, pid, pn) {
   // 登録済み親チェック
-  if (!childData.parents.some(p => p.pid === data.pid)) {
+  if (!childData.parents.some(p => p.pid === pid)) {
     showToast('登録されていないおやからのQRです', 'error');
     return;
   }
 
-  // 重複スキャンチェック
-  const seqKey = `${data.pid}_${data.seq}`;
-  if (childData.scannedSeqs && childData.scannedSeqs.includes(seqKey)) {
-    showToast('このQRはもう読み取りずみです', 'error');
+  // 受取済みをフィルタ
+  const newItems = items.filter(it => {
+    const seqKey = `${pid}_${it.seq}`;
+    return !(childData.scannedSeqs && childData.scannedSeqs.includes(seqKey));
+  });
+
+  if (!newItems.length) {
+    showToast('すべて受取ずみです', 'error');
     return;
   }
 
   const prevLevel = Store.calcLevel(childData.totalEarned);
+  let totalAdded = 0;
 
-  childData.balance += data.amt;
-  childData.totalEarned += data.amt;
-  childData.history.push({
-    chore: data.ch, icon: data.ci || '⭐', amount: data.amt,
-    timestamp: data.ts, seq: data.seq, parentId: data.pid, parentName: data.pn
+  newItems.forEach(it => {
+    childData.balance += it.amt;
+    childData.totalEarned += it.amt;
+    totalAdded += it.amt;
+    childData.history.push({
+      chore: it.ch, icon: it.ci || '⭐', amount: it.amt,
+      timestamp: it.ts, seq: it.seq, parentId: pid, parentName: pn
+    });
+    if (!childData.scannedSeqs) childData.scannedSeqs = [];
+    childData.scannedSeqs.push(`${pid}_${it.seq}`);
   });
-  if (!childData.scannedSeqs) childData.scannedSeqs = [];
-  childData.scannedSeqs.push(seqKey);
+
   Store.setChildData(childData);
 
   const newLevel = Store.calcLevel(childData.totalEarned);
   const didLevelUp = newLevel.level > prevLevel.level;
+  const skipped = items.length - newItems.length;
 
-  document.getElementById('receiveChore').textContent = `${data.ci || '⭐'} ${data.ch}`;
-  document.getElementById('receiveAmount').textContent = `+${data.amt}円`;
+  // 成功モーダル表示
+  let detailHtml = '';
+  if (newItems.length === 1) {
+    document.getElementById('receiveChore').textContent = `${newItems[0].ci || '⭐'} ${newItems[0].ch}`;
+    document.getElementById('receiveAmount').textContent = `+${newItems[0].amt}円`;
+  } else {
+    document.getElementById('receiveChore').innerHTML =
+      newItems.map(it => `<div style="display:flex;justify-content:space-between;font-size:0.95rem;margin:2px 0;"><span>${it.ci || '⭐'} ${it.ch}</span><span>+${it.amt}円</span></div>`).join('');
+    document.getElementById('receiveAmount').textContent = `合計 +${totalAdded}円`;
+  }
+
+  if (skipped > 0) {
+    document.getElementById('receiveChore').innerHTML += `<div style="font-size:0.8rem;color:var(--c-text-sub);margin-top:8px;">（${skipped}件は受取ずみのためスキップ）</div>`;
+  }
+
   document.getElementById('receiveSuccessModal').classList.add('active');
-
   setTimeout(() => Confetti.burst(document.body), 200);
   if (didLevelUp) setTimeout(() => Confetti.levelUp(document.body, newLevel), 1200);
 

@@ -30,7 +30,7 @@ const Store = {
       parentName: parentName,
       secret: OteCrypto.generateSecret(),
       children: [],
-      choreTemplates: [
+      chores: [
         { id: 't1', name: '食器洗い', amount: 100, icon: '🍽️' },
         { id: 't2', name: 'お風呂掃除', amount: 150, icon: '🛁' },
         { id: 't3', name: '掃除機がけ', amount: 100, icon: '🧹' },
@@ -40,9 +40,25 @@ const Store = {
         { id: 't7', name: '部屋の片づけ', amount: 80, icon: '🧸' },
         { id: 't8', name: 'お買い物手伝い', amount: 100, icon: '🛒' },
       ],
-      customChores: [],
     };
     this.setParentData(data);
+    return data;
+  },
+
+  /**
+   * 旧データ構造からの移行
+   * choreTemplates + customChores → chores に統合
+   */
+  migrateParentData(data) {
+    if (data.choreTemplates || data.customChores) {
+      data.chores = [...(data.choreTemplates || []), ...(data.customChores || [])];
+      delete data.choreTemplates;
+      delete data.customChores;
+      this.setParentData(data);
+    }
+    if (!data.chores) {
+      data.chores = [];
+    }
     return data;
   },
 
