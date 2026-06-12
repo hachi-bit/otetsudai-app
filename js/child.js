@@ -337,7 +337,7 @@ function showTab(tab) {
 
 // ========== データリセット ==========
 function confirmReset() {
-  if (!confirm('すべてのデータを削除しますか？')) return;
+  if (!confirm('すべてのアカウントデータを削除しますか？\nおかね・りれきも全部消えます。')) return;
   if (!confirm('本当に？')) return;
   Store.clearAll();
   location.href = 'index.html';
