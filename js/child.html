@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>おてつだい手帳 - こどもアプリ</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f0a2e">
+  <link rel="icon" href="icons/icon-192.png">
+  <link href="https://fonts.googleapis.com/css2?family=Rounded+Mplus+1c:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/common.css">
+  <link rel="stylesheet" href="css/child.css">
+</head>
+<body>
+
+  <!-- ========== セットアップ画面 ========== -->
+  <div id="setupScreen" class="setup-screen" style="display:none;">
+    <div class="logo" style="font-size:4rem;margin-bottom:16px;">⭐</div>
+    <h1 class="setup-title">おてつだい手帳</h1>
+    <p class="setup-subtitle">おとうさん・おかあさんのQRをよみとって<br>登録しよう！</p>
+
+    <div id="setupScanArea" style="width:100%;max-width:300px;margin:16px auto;border-radius:16px;overflow:hidden;"></div>
+    <p id="setupStatus" style="color:var(--c-text-sub);font-size:0.85rem;margin-top:8px;"></p>
+
+    <button class="btn btn-primary btn-block" style="margin-top:16px;max-width:280px;" onclick="startSetupScan()">
+      📷 QRをよみとって登録
+    </button>
+  </div>
+
+  <!-- ========== メインアプリ ========== -->
+  <div id="appScreen" style="display:none;">
+
+    <!-- ヘッダー -->
+    <header class="app-header">
+      <h1>⭐ おてつだい手帳</h1>
+      <button class="header-btn" onclick="showTab('settings')" title="設定">⚙️</button>
+    </header>
+
+    <!-- ========== タブ：ホーム ========== -->
+    <main class="main-content" id="tab-home">
+
+      <!-- プロフィール -->
+      <section class="profile-section">
+        <div class="avatar-large" id="avatarDisplay"></div>
+        <div class="child-username" id="childNameDisplay"></div>
+        <div class="level-badge" id="levelBadge"></div>
+      </section>
+
+      <!-- 残高カード -->
+      <section class="balance-card">
+        <div class="balance-label">💰 もっているおかね</div>
+        <div class="balance-amount">
+          <span id="balanceDisplay">0</span><span class="balance-unit">円</span>
+        </div>
+        <div class="exp-bar-container">
+          <div class="exp-bar-bg">
+            <div class="exp-bar-fill" id="expBarFill" style="width:0%"></div>
+          </div>
+          <div class="exp-bar-text">
+            <span id="expCurrent"></span>
+            <span id="expNext"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- QR読み取りボタン -->
+      <button class="btn scan-btn btn-block" onclick="openScanRewardModal()">
+        <span class="btn-emoji">📷</span> ごほうびQRをよみとる
+      </button>
+
+      <!-- 最近のりれき -->
+      <section class="history-section">
+        <h2>📜 さいきんのりれき</h2>
+        <div id="recentHistory"></div>
+      </section>
+
+    </main>
+
+    <!-- ========== タブ：りれき ========== -->
+    <main class="main-content" id="tab-history" style="display:none;">
+      <h2 class="history-section" style="margin-bottom:16px;">
+        <span style="font-size:0.85rem;color:var(--c-text-sub);text-transform:uppercase;letter-spacing:0.1em;">📜 ぜんぶのりれき</span>
+      </h2>
+      <div id="fullHistory"></div>
+    </main>
+
+    <!-- ========== タブ：設定 ========== -->
+    <main class="main-content" id="tab-settings" style="display:none;">
+      <h2 style="font-size:0.85rem;color:var(--c-text-sub);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:16px;">⚙️ 設定</h2>
+
+      <div class="card" style="background:var(--c-surface);border:1px solid var(--c-border);margin-bottom:16px;">
+        <p style="font-size:0.85rem;color:var(--c-text-sub);margin-bottom:4px;">なまえ</p>
+        <p style="font-weight:700;font-size:1.1rem;" id="settingsName"></p>
+      </div>
+
+      <div class="card" style="background:var(--c-surface);border:1px solid var(--c-border);margin-bottom:16px;">
+        <p style="font-size:0.85rem;color:var(--c-text-sub);margin-bottom:4px;">レベル</p>
+        <p style="font-weight:700;font-size:1.1rem;" id="settingsLevel"></p>
+      </div>
+
+      <div class="card" style="background:var(--c-surface);border:1px solid var(--c-border);margin-bottom:16px;">
+        <p style="font-size:0.85rem;color:var(--c-text-sub);margin-bottom:8px;">登録されたおや</p>
+        <div id="settingsParentList"></div>
+      </div>
+
+      <button class="btn btn-block" style="background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border);" onclick="openAddParentScan()">
+        ＋ おやを追加（QRスキャン）
+      </button>
+
+      <button class="btn btn-block" style="background:rgba(239,68,68,0.15);color:#ef4444;margin-top:24px;" onclick="confirmReset()">
+        🗑️ アカウントデータをすべて削除
+      </button>
+    </main>
+
+    <!-- タブナビ -->
+    <nav class="tab-nav">
+      <button class="tab-item active" onclick="showTab('home')" id="tabHome">
+        <span class="tab-icon">🏠</span> ホーム
+      </button>
+      <button class="tab-item" onclick="showTab('history')" id="tabHistory">
+        <span class="tab-icon">📜</span> りれき
+      </button>
+      <button class="tab-item" onclick="showTab('settings')" id="tabSettings">
+        <span class="tab-icon">⚙️</span> 設定
+      </button>
+    </nav>
+  </div>
+
+  <!-- ========== モーダル：親追加QRスキャン ========== -->
+  <div class="modal-overlay" id="addParentModal">
+    <div class="modal">
+      <h2>📷 あたらしくついかするおやのQRをよみとろう</h2>
+      <p style="font-size:0.85rem;color:var(--c-text-sub);margin-bottom:12px;">ついかするおやの登録QRをスキャンしてね</p>
+      <div id="addParentReader"></div>
+      <button class="btn btn-secondary btn-block" style="margin-top:12px;" onclick="closeAddParentScan()">キャンセル</button>
+    </div>
+  </div>
+
+  <!-- ========== モーダル：QRスキャン ========== -->
+  <div class="modal-overlay" id="scanRewardModal">
+    <div class="modal">
+      <h2>📷 ごほうびQRをよみとろう</h2>
+      <div id="scanRewardReader"></div>
+      <button class="btn btn-secondary btn-block" style="margin-top:12px;" onclick="closeScanRewardModal()">キャンセル</button>
+    </div>
+  </div>
+
+  <!-- ========== モーダル：受取成功 ========== -->
+  <div class="modal-overlay" id="receiveSuccessModal">
+    <div class="modal receive-success">
+      <div style="font-size:3rem;">🎉</div>
+      <h2>ごほうびゲット！</h2>
+      <div class="receive-chore-name" id="receiveChore"></div>
+      <div class="receive-amount-display" id="receiveAmount"></div>
+      <button class="btn btn-primary btn-block" style="margin-top:16px;" onclick="closeReceiveSuccess()">やったー！ 🙌</button>
+    </div>
+  </div>
+
+  <!-- トースト -->
+  <div class="toast" id="toast"></div>
+
+  <!-- CDN Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <!-- App Scripts -->
+  <script src="js/crypto.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/qrcode.min.js"></script>
+  <script src="js/qr.js"></script>
+  <script src="js/confetti.js"></script>
+  <script src="js/child.js"></script>
+</body>
+</html>
