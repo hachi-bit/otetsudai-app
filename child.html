@@ -94,6 +94,11 @@
       </div>
 
       <div class="card" style="background:var(--c-surface);border:1px solid var(--c-border);margin-bottom:16px;">
+        <p style="font-size:0.85rem;color:var(--c-text-sub);margin-bottom:8px;">アバター（タップでへんこう）</p>
+        <div id="settingsAvatarPicker" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;"></div>
+      </div>
+
+      <div class="card" style="background:var(--c-surface);border:1px solid var(--c-border);margin-bottom:16px;">
         <p style="font-size:0.85rem;color:var(--c-text-sub);margin-bottom:4px;">レベル</p>
         <p style="font-weight:700;font-size:1.1rem;" id="settingsLevel"></p>
       </div>
@@ -112,6 +117,35 @@
       </button>
     </main>
 
+    <!-- ========== タブ：きろく（グラフ） ========== -->
+    <main class="main-content" id="tab-chart" style="display:none;">
+      <h2 style="font-size:0.85rem;color:var(--c-text-sub);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:16px;">📊 きろく</h2>
+
+      <!-- 週ごとグラフ -->
+      <div class="card" style="background:var(--c-surface);border:1px solid var(--c-border);margin-bottom:16px;padding:16px;">
+        <h3 style="font-size:0.95rem;font-weight:700;margin-bottom:4px;">📅 しゅうごと</h3>
+        <p style="font-size:0.75rem;color:var(--c-text-sub);margin-bottom:12px;">さいきん8しゅうかん</p>
+        <div id="weeklyChartSummary" style="font-size:0.85rem;margin-bottom:8px;"></div>
+        <canvas id="weeklyChart" width="360" height="200" style="width:100%;height:auto;"></canvas>
+        <div class="chart-legend" style="display:flex;justify-content:center;gap:16px;margin-top:8px;font-size:0.75rem;color:var(--c-text-sub);">
+          <span>🟡 金額（円）</span>
+          <span>🟣 回数（回）</span>
+        </div>
+      </div>
+
+      <!-- 月ごとグラフ -->
+      <div class="card" style="background:var(--c-surface);border:1px solid var(--c-border);margin-bottom:16px;padding:16px;">
+        <h3 style="font-size:0.95rem;font-weight:700;margin-bottom:4px;">📆 つきごと</h3>
+        <p style="font-size:0.75rem;color:var(--c-text-sub);margin-bottom:12px;">さいきん6かげつ</p>
+        <div id="monthlyChartSummary" style="font-size:0.85rem;margin-bottom:8px;"></div>
+        <canvas id="monthlyChart" width="360" height="200" style="width:100%;height:auto;"></canvas>
+        <div class="chart-legend" style="display:flex;justify-content:center;gap:16px;margin-top:8px;font-size:0.75rem;color:var(--c-text-sub);">
+          <span>🟡 金額（円）</span>
+          <span>🟣 回数（回）</span>
+        </div>
+      </div>
+    </main>
+
     <!-- タブナビ -->
     <nav class="tab-nav">
       <button class="tab-item active" onclick="showTab('home')" id="tabHome">
@@ -119,6 +153,9 @@
       </button>
       <button class="tab-item" onclick="showTab('history')" id="tabHistory">
         <span class="tab-icon">📜</span> りれき
+      </button>
+      <button class="tab-item" onclick="showTab('chart')" id="tabChart">
+        <span class="tab-icon">📊</span> きろく
       </button>
       <button class="tab-item" onclick="showTab('settings')" id="tabSettings">
         <span class="tab-icon">⚙️</span> 設定

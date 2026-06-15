@@ -4,6 +4,7 @@ let childData = null;
 let setupScanner = null;
 let rewardScanner = null;
 let addParentScanner = null;
+const AVATARS = ['🦁','🐱','🐶','🐰','🦊','🐼','🐸','🐧','🦄','🐲','🌟','🚀'];
 
 // ========== 初期化 ==========
 document.addEventListener('DOMContentLoaded', () => {
@@ -42,6 +43,7 @@ function onSetupScanned(data) {
   }
 
   const balance = data.bal || 0;
+  const isRestore = data.t === 'restore';
   Store.setRole('child');
   childData = {
     role: 'child',
@@ -55,6 +57,7 @@ function onSetupScanned(data) {
     parents: [{ pid: data.pid, name: data.pn || '親' }],
     familyToken: data.ft,
     scannedSeqs: [],
+    restoredAt: isRestore ? Date.now() : null,
   };
   Store.setChildData(childData);
 
@@ -137,6 +140,15 @@ function renderSettings() {
   document.getElementById('settingsName').textContent = `${childData.avatar} ${childData.name}`;
   document.getElementById('settingsLevel').textContent = `Lv.${level.level} ${level.title}（累計 ${childData.totalEarned}円）`;
 
+  // アバターピッカー
+  const picker = document.getElementById('settingsAvatarPicker');
+  picker.innerHTML = AVATARS.map(a => `
+    <div style="font-size:1.8rem;width:48px;height:48px;display:flex;align-items:center;justify-content:center;
+      background:${a === childData.avatar ? 'rgba(251,191,36,0.2)' : 'var(--c-surface)'};
+      border:2px solid ${a === childData.avatar ? 'var(--c-primary)' : 'var(--c-border)'};
+      border-radius:50%;cursor:pointer;" onclick="changeAvatar('${a}')">${a}</div>
+  `).join('');
+
   const parentList = document.getElementById('settingsParentList');
   if (!childData.parents || childData.parents.length === 0) {
     parentList.innerHTML = '<p style="font-weight:700;">未接続</p>';
@@ -145,6 +157,13 @@ function renderSettings() {
       `<p style="font-weight:700;margin-bottom:4px;">✅ ${escHtml(p.name)}</p>`
     ).join('');
   }
+}
+
+function changeAvatar(avatar) {
+  childData.avatar = avatar;
+  Store.setChildData(childData);
+  render();
+  showToast(`アバターを ${avatar} にへんこうしました！`, 'success');
 }
 
 function getParentName(pid) {
@@ -200,10 +219,11 @@ function onAddParentScanned(data) {
 
   childData.parents.push({ pid: data.pid, name: data.pn || '親' });
 
-  // 復元QRの場合は残高を加算
+  // 復元QRの場合は残高を加算 + restoredAt更新
   if (data.t === 'restore' && data.bal > 0) {
     childData.balance += data.bal;
     childData.totalEarned += data.bal;
+    childData.restoredAt = Date.now();
     showToast(`${data.pn || '親'}を追加し、${data.bal}円を復元しました！`, 'success');
   } else {
     showToast(`${data.pn || '親'}を追加しました！`, 'success');
@@ -266,10 +286,13 @@ async function processRewardItems(items, pid, pn) {
     return;
   }
 
-  // 受取済みをフィルタ
+  // 受取済み & 復元前をフィルタ
   const newItems = items.filter(it => {
     const seqKey = `${pid}_${it.seq}`;
-    return !(childData.scannedSeqs && childData.scannedSeqs.includes(seqKey));
+    if (childData.scannedSeqs && childData.scannedSeqs.includes(seqKey)) return false;
+    // 復元後は、復元日時より前の報酬を弾く
+    if (childData.restoredAt && it.ts < childData.restoredAt) return false;
+    return true;
   });
 
   if (!newItems.length) {
@@ -326,13 +349,14 @@ function closeReceiveSuccess() {
 
 // ========== タブ切り替え ==========
 function showTab(tab) {
-  ['home','history','settings'].forEach(t => {
+  ['home','history','settings','chart'].forEach(t => {
     const el = document.getElementById('tab-' + t);
     if (el) el.style.display = (t === tab) ? 'block' : 'none';
     const btn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
     if (btn) btn.classList.toggle('active', t === tab);
   });
   if (tab === 'history') renderFullHistory();
+  if (tab === 'chart') renderCharts();
 }
 
 // ========== データリセット ==========
@@ -354,4 +378,176 @@ function escHtml(s) { const d = document.createElement('div'); d.textContent = s
 function formatDate(ts) {
   const d = new Date(ts);
   return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+}
+
+// ========== グラフ描画 ==========
+
+function renderCharts() {
+  if (!childData || !childData.history) return;
+  renderWeeklyChart();
+  renderMonthlyChart();
+}
+
+// --- 週ごとデータ集計 ---
+function getWeeklyData(weeks) {
+  const now = new Date();
+  const result = [];
+  for (let w = weeks - 1; w >= 0; w--) {
+    const weekEnd = new Date(now);
+    weekEnd.setDate(now.getDate() - w * 7);
+    weekEnd.setHours(23, 59, 59, 999);
+    const weekStart = new Date(weekEnd);
+    weekStart.setDate(weekEnd.getDate() - 6);
+    weekStart.setHours(0, 0, 0, 0);
+
+    let amount = 0, count = 0;
+    childData.history.forEach(h => {
+      const d = new Date(h.timestamp);
+      if (d >= weekStart && d <= weekEnd) { amount += h.amount; count++; }
+    });
+
+    const m = weekStart.getMonth() + 1;
+    const d = weekStart.getDate();
+    result.push({ label: `${m}/${d}~`, amount, count });
+  }
+  return result;
+}
+
+// --- 月ごとデータ集計 ---
+function getMonthlyData(months) {
+  const now = new Date();
+  const result = [];
+  for (let m = months - 1; m >= 0; m--) {
+    const target = new Date(now.getFullYear(), now.getMonth() - m, 1);
+    const year = target.getFullYear();
+    const month = target.getMonth();
+
+    let amount = 0, count = 0;
+    childData.history.forEach(h => {
+      const d = new Date(h.timestamp);
+      if (d.getFullYear() === year && d.getMonth() === month) { amount += h.amount; count++; }
+    });
+
+    result.push({ label: `${month + 1}月`, amount, count });
+  }
+  return result;
+}
+
+// --- 週ごとグラフ描画 ---
+function renderWeeklyChart() {
+  const data = getWeeklyData(8);
+  const thisWeek = data[data.length - 1];
+  const lastWeek = data[data.length - 2];
+  const diff = thisWeek.amount - lastWeek.amount;
+  const diffSign = diff >= 0 ? '+' : '';
+  document.getElementById('weeklyChartSummary').innerHTML =
+    `<span style="color:var(--c-primary);font-weight:800;">今週: ${thisWeek.amount}円（${thisWeek.count}回）</span>` +
+    `<span style="color:var(--c-text-sub);margin-left:8px;">先週比 ${diffSign}${diff}円</span>`;
+  drawChart('weeklyChart', data);
+}
+
+// --- 月ごとグラフ描画 ---
+function renderMonthlyChart() {
+  const data = getMonthlyData(6);
+  const thisMonth = data[data.length - 1];
+  const lastMonth = data[data.length - 2];
+  const diff = thisMonth.amount - lastMonth.amount;
+  const diffSign = diff >= 0 ? '+' : '';
+  document.getElementById('monthlyChartSummary').innerHTML =
+    `<span style="color:var(--c-primary);font-weight:800;">今月: ${thisMonth.amount}円（${thisMonth.count}回）</span>` +
+    `<span style="color:var(--c-text-sub);margin-left:8px;">先月比 ${diffSign}${diff}円</span>`;
+  drawChart('monthlyChart', data);
+}
+
+// --- 共通グラフ描画（2軸折れ線） ---
+function drawChart(canvasId, data) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+
+  // 高解像度対応
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight || 200;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  ctx.scale(dpr, dpr);
+
+  // 描画領域
+  const pad = { top: 16, right: 40, bottom: 32, left: 40 };
+  const cw = w - pad.left - pad.right;
+  const ch = h - pad.top - pad.bottom;
+
+  // クリア
+  ctx.clearRect(0, 0, w, h);
+
+  const amounts = data.map(d => d.amount);
+  const counts = data.map(d => d.count);
+  const maxAmt = Math.max(...amounts, 100);
+  const maxCnt = Math.max(...counts, 1);
+
+  // グリッド線
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + (ch / 4) * i;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+  }
+
+  // X軸ラベル
+  ctx.fillStyle = 'rgba(240,236,255,0.4)';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'center';
+  data.forEach((d, i) => {
+    const x = pad.left + (cw / (data.length - 1 || 1)) * i;
+    ctx.fillText(d.label, x, h - 8);
+  });
+
+  // Y軸ラベル（左: 金額）
+  ctx.textAlign = 'right';
+  ctx.fillStyle = 'rgba(251,191,36,0.5)';
+  for (let i = 0; i <= 4; i++) {
+    const val = Math.round(maxAmt / 4 * (4 - i));
+    const y = pad.top + (ch / 4) * i;
+    ctx.fillText(val, pad.left - 4, y + 3);
+  }
+
+  // Y軸ラベル（右: 回数）
+  ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(167,139,250,0.5)';
+  for (let i = 0; i <= 4; i++) {
+    const val = Math.round(maxCnt / 4 * (4 - i));
+    const y = pad.top + (ch / 4) * i;
+    ctx.fillText(val, w - pad.right + 4, y + 3);
+  }
+
+  // 折れ線描画関数
+  function drawLine(values, maxVal, color) {
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    values.forEach((v, i) => {
+      const x = pad.left + (cw / (data.length - 1 || 1)) * i;
+      const y = pad.top + ch - (v / maxVal) * ch;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // ドット
+    values.forEach((v, i) => {
+      const x = pad.left + (cw / (data.length - 1 || 1)) * i;
+      const y = pad.top + ch - (v / maxVal) * ch;
+      ctx.beginPath();
+      ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    });
+  }
+
+  // 金額ライン（ゴールド）
+  drawLine(amounts, maxAmt, '#fbbf24');
+  // 回数ライン（パープル）
+  drawLine(counts, maxCnt, '#a78bfa');
 }

@@ -185,13 +185,13 @@
       navigator.serviceWorker.register('sw.js').catch(() => {});
     }
 
-    // 既にロール設定済みなら直接遷移
+    // 既にロール設定済みなら直接遷移（戻るボタン対策）
     const role = localStorage.getItem('ote_role');
     if (role === 'parent' && localStorage.getItem('ote_parent')) {
-      // 親データがあればスキップ可能（ただし選択画面も見せる）
+      location.replace('parent.html');
     }
     if (role === 'child' && localStorage.getItem('ote_child')) {
-      // 子データがあればスキップ可能
+      location.replace('child.html');
     }
   </script>
 </body>

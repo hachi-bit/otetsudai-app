@@ -216,11 +216,11 @@ async function generateBatchQR(source) {
     const indices = getCheckedPendingIndices();
     if(!indices.length){toast('送信する項目を選んでください','error');return;}
     if(indices.length > MAX_BATCH){toast(`最大${MAX_BATCH}件までです`,'error');return;}
-    // pendingからsentHistoryに移動
+    // pendingからsentHistoryに移動（addedAtをタイムスタンプとして使用）
     const pendingItems = indices.map(i => child.pending[i]);
     const sentItems = [];
     for(const p of pendingItems){
-      sentItems.push(await addToSentHistory(child, p.chore, p.icon, p.amount));
+      sentItems.push(await addToSentHistory(child, p.chore, p.icon, p.amount, p.addedAt));
     }
     // pending から削除（逆順）
     indices.sort((a,b)=>b-a).forEach(i => child.pending.splice(i,1));
@@ -253,9 +253,9 @@ async function generateBatchQR(source) {
   render();
 }
 
-async function addToSentHistory(child, chore, icon, amount) {
+async function addToSentHistory(child, chore, icon, amount, customTs) {
   const seq = child.sentHistory.length + 1;
-  const ts = Date.now();
+  const ts = customTs || Date.now();
   const hash = await OteCrypto.createRewardHash(parentData.parentId, child.childId, amount, ts, seq, parentData.secret);
   child.expectedBalance += amount;
   const entry = {chore, icon, amount, timestamp:ts, seq, hash};
