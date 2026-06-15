@@ -1,19 +1,32 @@
 // qr.js - QR生成・読み取りヘルパー
-// QR生成: qrcode.js（ローカル同梱）+ Base64エンコード
-// QRスキャン: html5-qrcode (CDN) + Base64デコード
+// QR生成: qrcode.js（ローカル同梱）+ URL方式
+// QRスキャン: html5-qrcode (CDN)
 
 const QR = {
   // --- Base64ユーティリティ（UTF-8対応） ---
-  _toBase64(str) {
+  toBase64(str) {
     return btoa(unescape(encodeURIComponent(str)));
   },
-  _fromBase64(b64) {
+  fromBase64(b64) {
     return decodeURIComponent(escape(atob(b64)));
   },
 
+  // --- ベースURL取得 ---
+  _getBaseUrl() {
+    return window.location.href.replace(/[^/]*(\?.*)?(\#.*)?$/, '');
+  },
+
+  // --- QRタイプ → 遷移先ページ ---
+  _getTargetPage(type) {
+    switch (type) {
+      case 'share': case 'chores': return 'parent.html';
+      default: return 'child.html'; // reg, restore, rwd, batch
+    }
+  },
+
   /**
-   * QRコードを生成して指定要素に表示
-   * データはJSON→Base64エンコードしてASCII化
+   * QRコードを生成（URL埋め込み方式）
+   * スマホの標準カメラでスキャン → ブラウザ/PWAが自動起動
    */
   generate(elementId, data, size = 220) {
     const el = document.getElementById(elementId);
@@ -26,11 +39,14 @@ const QR = {
     }
 
     const jsonStr = JSON.stringify(data);
-    const b64 = this._toBase64(jsonStr);
+    const b64 = this.toBase64(jsonStr);
+    const targetPage = this._getTargetPage(data.t);
+    const baseUrl = this._getBaseUrl();
+    const url = `${baseUrl}${targetPage}#${b64}`;
 
     try {
       return new QRCode(el, {
-        text: b64,
+        text: url,
         width: size,
         height: size,
         typeNumber: 0,
@@ -39,14 +55,34 @@ const QR = {
         correctLevel: QRCode.CorrectLevel.L,
       });
     } catch (e) {
-      console.error('QR generation failed:', e.message, 'base64 length:', b64.length);
+      console.error('QR generation failed:', e.message, 'url length:', url.length);
       el.innerHTML = '<div style="padding:20px;text-align:center;color:#ef4444;font-size:0.9rem;">QRコードの生成に失敗しました。<br>データが大きすぎる可能性があります。</div>';
     }
   },
 
   /**
+   * URLまたはBase64からデータを解析
+   */
+  parseQRText(text) {
+    // URL方式: https://...#BASE64
+    if (text.startsWith('http') && text.includes('#')) {
+      const hash = text.split('#')[1];
+      if (hash) {
+        const jsonStr = this.fromBase64(hash);
+        return JSON.parse(jsonStr);
+      }
+    }
+    // Base64直接
+    try {
+      const jsonStr = this.fromBase64(text);
+      return JSON.parse(jsonStr);
+    } catch(e) {}
+    // 生JSON（後方互換）
+    return JSON.parse(text);
+  },
+
+  /**
    * QRスキャナーを起動
-   * 読み取ったBase64をデコードしてJSONとして返す
    */
   async startScanner(elementId, onSuccess, onError) {
     if (typeof Html5Qrcode === 'undefined') {
@@ -61,20 +97,11 @@ const QR = {
         { fps: 10, qrbox: { width: 250, height: 250 } },
         (decodedText) => {
           try {
-            // Base64デコード → JSON解析
-            const jsonStr = self._fromBase64(decodedText);
-            const data = JSON.parse(jsonStr);
+            const data = self.parseQRText(decodedText);
             scanner.stop().catch(() => {});
             onSuccess(data);
-          } catch (e1) {
-            // Base64でなければ直接JSON解析を試す（後方互換）
-            try {
-              const data = JSON.parse(decodedText);
-              scanner.stop().catch(() => {});
-              onSuccess(data);
-            } catch (e2) {
-              // どちらも失敗 → 無視して続行
-            }
+          } catch (e) {
+            // 解析失敗 → 無視して続行
           }
         },
         () => {}

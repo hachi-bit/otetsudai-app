@@ -9,12 +9,73 @@ const AVATARS = ['🦁','🐱','🐶','🐰','🦊','🐼','🐸','🐧','🦄',
 // ========== 初期化 ==========
 document.addEventListener('DOMContentLoaded', () => {
   childData = Store.getChildData();
-  if (!childData) {
-    showSetup();
-  } else {
-    showApp();
+
+  // URLハッシュにQRデータがあるかチェック
+  const hash = window.location.hash.substring(1);
+  if (hash) {
+    // ハッシュをクリア（履歴に残さない）
+    history.replaceState(null, '', window.location.pathname);
+    try {
+      const data = QR.parseQRText(hash.startsWith('http') ? hash : 'x#' + hash);
+      // ↑ hashだけの場合はparseQRTextのBase64パスで処理
+      handleIncomingQR(data);
+      return;
+    } catch(e) {
+      // ハッシュ解析失敗 → 通常フローへ
+      try {
+        const jsonStr = QR.fromBase64(hash);
+        const data = JSON.parse(jsonStr);
+        handleIncomingQR(data);
+        return;
+      } catch(e2) {}
+    }
   }
+
+  // 通常フロー
+  if (!childData) showSetup();
+  else showApp();
 });
+
+// ========== URL経由のQRデータ処理 ==========
+function handleIncomingQR(data) {
+  if (!data || !data.t) { normalBoot(); return; }
+
+  // 登録・復元QR
+  if (data.t === 'reg' || data.t === 'restore') {
+    if (!childData) {
+      // 初回登録
+      onSetupScanned(data);
+    } else if (data.cid === childData.childId) {
+      // 追加の親
+      showApp();
+      onAddParentScanned(data);
+    } else {
+      showApp();
+      showToast('このQRはべつのこども用です', 'error');
+    }
+    return;
+  }
+
+  // 報酬・バッチQR
+  if (data.t === 'rwd' || data.t === 'batch') {
+    if (!childData) {
+      showSetup();
+      showToast('まず登録をしてね', 'error');
+      return;
+    }
+    showApp();
+    // 少し遅延させてUIが描画されてから処理
+    setTimeout(() => onRewardScanned(data), 300);
+    return;
+  }
+
+  normalBoot();
+}
+
+function normalBoot() {
+  if (!childData) showSetup();
+  else showApp();
+}
 
 // ========== セットアップ（親のQRをスキャンして初回登録） ==========
 function showSetup() {

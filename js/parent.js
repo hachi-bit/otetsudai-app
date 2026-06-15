@@ -14,9 +14,36 @@ let importScanner = null;
 // ===== 初期化 =====
 document.addEventListener('DOMContentLoaded', () => {
   parentData = Store.getParentData();
-  if (!parentData) { show('setupScreen'); hide('appScreen'); }
-  else { parentData = Store.migrateParentData(parentData); showApp(); }
+  if (!parentData) { show('setupScreen'); hide('appScreen'); return; }
+  parentData = Store.migrateParentData(parentData);
+  showApp();
+
+  // URLハッシュにQRデータがあるかチェック
+  const hash = window.location.hash.substring(1);
+  if (hash) {
+    history.replaceState(null, '', window.location.pathname);
+    try {
+      const jsonStr = QR.fromBase64(hash);
+      const data = JSON.parse(jsonStr);
+      handleIncomingParentQR(data);
+    } catch(e) {}
+  }
 });
+
+// ===== URL経由のQRデータ処理 =====
+function handleIncomingParentQR(data) {
+  if (!data || !data.t || !parentData) return;
+
+  if (data.t === 'share') {
+    onShareChildScanned(data);
+    return;
+  }
+
+  if (data.t === 'chores') {
+    onImportChoresScanned(data);
+    return;
+  }
+}
 
 function completeParentSetup() {
   const n = document.getElementById('setupParentName').value.trim();
@@ -315,7 +342,7 @@ function onShareChildScanned(data){
   Store.setParentData(parentData); toast(`${data.a} ${data.n}を取得`,'success'); showRegQR(data.cid,data.n,data.a,data.ft); render();
 }
 
-function showRegQR(cid,n,a,ft){hideAllSteps();show('addChildStep2');document.getElementById('addChildInfo').textContent=`${a} ${n} の登録QR`;
+function showRegQR(cid,n,a,ft){document.getElementById('addChildModal').classList.add('active');hideAllSteps();show('addChildStep2');document.getElementById('addChildInfo').textContent=`${a} ${n} の登録QR`;
   setTimeout(()=>QR.generate('childRegQRDisplay',{t:'reg',pid:parentData.parentId,pn:parentData.parentName,cid,n,a,ft},200),100);}
 
 // ===== 共有・復元 =====
@@ -353,8 +380,15 @@ function onImportChoresScanned(data){closeImportChoresModal();if(data.t!=='chore
   Store.setParentData(parentData);toast(`${added}件インポート（重複スキップ）`,'success');render();}
 
 // ===== 子供削除 =====
-function deleteChild(i){const ch=parentData.children[i];if(!confirm(`${ch.name}を削除？`))return;parentData.children.splice(i,1);
-  if(selectedChildId===ch.childId){selectedChildId=null;hide('choreSection');}Store.setParentData(parentData);render();}
+function deleteChild(i){
+  const ch=parentData.children[i];
+  const input = prompt(`「${ch.name}」を削除するには、こどもの名前を入力してください`);
+  if (input === null) return; // キャンセル
+  if (input.trim() !== ch.name) { toast('名前が一致しません', 'error'); return; }
+  parentData.children.splice(i,1);
+  if(selectedChildId===ch.childId){selectedChildId=null;hide('choreSection');hide('parentChartSection');}
+  Store.setParentData(parentData); toast(`${ch.avatar} ${ch.name}を削除しました`,'success'); render();
+}
 
 // ===== ユーティリティ =====
 function confirmReset(){if(!confirm('すべてのアカウントデータを削除しますか？\nお子さんの残高・りれきも消えます。'))return;if(!confirm('本当に？'))return;Store.clearAll();location.href='index.html';}
