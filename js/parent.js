@@ -190,6 +190,7 @@ function renderSettings() {
   const levels = parentData.levels || Store.DEFAULT_LEVELS;
   lvl.innerHTML = levels.map((lv,i) => `
     <div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <input type="checkbox" id="lvchk${i}" checked style="width:20px;height:20px;accent-color:var(--p-primary);flex-shrink:0;">
       <span style="font-size:1.1rem;font-weight:800;color:var(--p-primary);min-width:32px;">Lv${lv.level}</span>
       <span style="flex:1;font-weight:600;">${esc(lv.title)}</span>
       <span style="font-size:0.85rem;color:var(--p-text-sub);">${lv.threshold}円〜</span>
@@ -432,7 +433,15 @@ function removeLevel(i) {
   Store.setParentData(parentData); render();
 }
 function syncLevelsToChild() {
-  const qr = { t:'levels', items: parentData.levels.map(lv => ({l:lv.level, th:lv.threshold, ti:lv.title})) };
+  const levels = parentData.levels || Store.DEFAULT_LEVELS;
+  const checked = [];
+  levels.forEach((lv, i) => {
+    if (document.getElementById('lvchk'+i)?.checked) checked.push(lv);
+  });
+  if (!checked.length) { toast('同期する称号を選んでください','error'); return; }
+  // level番号を振り直す
+  const items = checked.map((lv,i) => ({l:i+1, th:lv.threshold, ti:lv.title}));
+  const qr = { t:'levels', items };
   document.getElementById('syncLevelsModal').classList.add('active');
   setTimeout(() => QR.generate('syncLevelsQRDisplay', qr, 220), 100);
 }
@@ -450,7 +459,12 @@ function deleteChild(i){
 }
 
 // ===== ユーティリティ =====
-function confirmReset(){if(!confirm('すべてのアカウントデータを削除しますか？\nお子さんの残高・りれきも消えます。'))return;if(!confirm('本当に？'))return;Store.clearAll();location.href='index.html';}
+function confirmReset(){
+  const input = prompt(`アカウントを削除するには「${parentData.parentName}」と入力してください`);
+  if (input === null) return;
+  if (input.trim() !== parentData.parentName) { toast('名前が一致しません','error'); return; }
+  Store.clearAll(); location.href='index.html';
+}
 function showTab(t){['home','history','settings'].forEach(x=>{document.getElementById('tab-'+x).style.display=(x===t)?'block':'none';
   const b=document.getElementById('tab'+x.charAt(0).toUpperCase()+x.slice(1));if(b)b.classList.toggle('active',x===t);});
   if(t==='history')renderHistory();if(t==='settings')renderSettings();}

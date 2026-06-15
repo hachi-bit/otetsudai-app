@@ -211,14 +211,30 @@ function renderSettings() {
   document.getElementById('settingsLevel').textContent = `Lv.${level.level} ${level.title}（累計 ${childData.totalEarned}円）`;
   document.getElementById('childVersionDisplay').textContent = `おてつだい手帳 ${APP_VERSION}`;
 
-  // アバターピッカー
+  // アイコンピッカー
   const picker = document.getElementById('settingsAvatarPicker');
-  picker.innerHTML = AVATARS.map(a => `
+  const currentLevel = Store.calcLevel(childData.totalEarned, getChildLevels());
+  let avatarHtml = AVATARS.map(a => `
     <div style="font-size:1.8rem;width:48px;height:48px;display:flex;align-items:center;justify-content:center;
       background:${a === childData.avatar ? 'rgba(251,191,36,0.2)' : 'var(--c-surface)'};
       border:2px solid ${a === childData.avatar ? 'var(--c-primary)' : 'var(--c-border)'};
       border-radius:50%;cursor:pointer;" onclick="changeAvatar('${a}')">${a}</div>
   `).join('');
+
+  if (currentLevel.level >= 5) {
+    avatarHtml += `
+      <div style="width:100%;margin-top:8px;text-align:center;">
+        <p style="font-size:0.75rem;color:var(--c-primary);margin-bottom:6px;">🎉 Lv5とくてん：すきなえもじをアイコンにできるよ！</p>
+        <div style="display:flex;gap:8px;justify-content:center;align-items:center;">
+          <input type="text" id="customEmojiInput" maxlength="2" placeholder="😎"
+            style="width:56px;height:56px;font-size:2rem;text-align:center;border-radius:50%;
+            background:var(--c-surface);border:2px solid var(--c-border);color:var(--c-text);">
+          <button onclick="applyCustomEmoji()" style="background:var(--c-primary);color:#1e1650;border:none;
+            padding:8px 16px;border-radius:8px;font-weight:700;font-size:0.85rem;cursor:pointer;">けってい</button>
+        </div>
+      </div>`;
+  }
+  picker.innerHTML = avatarHtml;
 
   const parentList = document.getElementById('settingsParentList');
   if (!childData.parents || childData.parents.length === 0) {
@@ -234,7 +250,18 @@ function changeAvatar(avatar) {
   childData.avatar = avatar;
   Store.setChildData(childData);
   render();
-  showToast(`アバターを ${avatar} にへんこうしました！`, 'success');
+  showToast(`アイコンを ${avatar} にへんこうしました！`, 'success');
+}
+
+function applyCustomEmoji() {
+  const input = document.getElementById('customEmojiInput');
+  if (!input) return;
+  const emoji = input.value.trim();
+  if (!emoji) { showToast('えもじを入力してね','error'); return; }
+  childData.avatar = emoji;
+  Store.setChildData(childData);
+  render();
+  showToast(`アイコンを ${emoji} にへんこうしました！`, 'success');
 }
 
 function getParentName(pid) {
@@ -432,8 +459,10 @@ function showTab(tab) {
 
 // ========== データリセット ==========
 function confirmReset() {
-  if (!confirm('すべてのアカウントデータを削除しますか？\nおかね・りれきも全部消えます。')) return;
-  if (!confirm('本当に？')) return;
+  if (!childData) return;
+  const input = prompt(`アカウントを削除するには「${childData.name}」と入力してください`);
+  if (input === null) return;
+  if (input.trim() !== childData.name) { showToast('名前が一致しません','error'); return; }
   Store.clearAll();
   location.href = 'index.html';
 }
