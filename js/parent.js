@@ -180,6 +180,7 @@ function renderSettings() {
   if (!parentData.chores.length) { chl.innerHTML = '<p style="color:var(--p-text-sub);font-size:0.9rem;">テンプレートなし</p>'; }
   else { chl.innerHTML = parentData.chores.map((ch,i) => `
     <div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <input type="checkbox" id="chchk${i}" style="width:20px;height:20px;accent-color:var(--p-primary);flex-shrink:0;">
       <span style="font-size:1.3rem;">${ch.icon}</span><span style="flex:1;font-weight:600;">${esc(ch.name)}</span>
       <span style="font-size:0.85rem;color:var(--p-text-sub);">${ch.amount}円</span>
       <button class="header-btn" onclick="openEditChoreModal(${i})" style="color:var(--p-primary);">✎</button>
@@ -190,7 +191,7 @@ function renderSettings() {
   const levels = parentData.levels || Store.DEFAULT_LEVELS;
   lvl.innerHTML = levels.map((lv,i) => `
     <div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-      <input type="checkbox" id="lvchk${i}" checked style="width:20px;height:20px;accent-color:var(--p-primary);flex-shrink:0;">
+      <input type="checkbox" id="lvchk${i}" style="width:20px;height:20px;accent-color:var(--p-primary);flex-shrink:0;">
       <span style="font-size:1.1rem;font-weight:800;color:var(--p-primary);min-width:32px;">Lv${lv.level}</span>
       <span style="flex:1;font-weight:600;">${esc(lv.title)}</span>
       <span style="font-size:0.85rem;color:var(--p-text-sub);">${lv.threshold}円〜</span>
@@ -384,8 +385,15 @@ function saveChore(){
 }
 function removeChore(i){if(!confirm(`${parentData.chores[i].icon} ${parentData.chores[i].name} を削除？`))return;parentData.chores.splice(i,1);Store.setParentData(parentData);render();}
 
-function openShareChoresModal(){if(!parentData.chores.length){toast('テンプレートがありません','error');return;}
-  document.getElementById('shareChoresModal').classList.add('active');setTimeout(()=>QR.generate('shareChoresQRDisplay',{t:'chores',items:parentData.chores.map(c=>({n:c.name,i:c.icon,a:c.amount}))},250),100);}
+function openShareChoresModal(){
+  const checked = [];
+  parentData.chores.forEach((ch,i) => {
+    if (document.getElementById('chchk'+i)?.checked) checked.push(ch);
+  });
+  if (!checked.length) { toast('共有するテンプレートにチェックを入れてください','error'); return; }
+  document.getElementById('shareChoresModal').classList.add('active');
+  setTimeout(()=>QR.generate('shareChoresQRDisplay',{t:'chores',items:checked.map(c=>({n:c.name,i:c.icon,a:c.amount}))},250),100);
+}
 function closeShareChoresModal(){document.getElementById('shareChoresModal').classList.remove('active');document.getElementById('shareChoresQRDisplay').innerHTML='';}
 
 function openImportChoresModal(){document.getElementById('importChoresModal').classList.add('active');
