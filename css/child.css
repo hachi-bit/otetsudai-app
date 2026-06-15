@@ -14,6 +14,12 @@
   --c-accent-pink: #f472b6;
   --c-accent-blue: #60a5fa;
   --c-border: rgba(255, 255, 255, 0.1);
+  --chart-grid: rgba(255,255,255,0.08);
+  --chart-label: rgba(240,236,255,0.4);
+  --chart-amount: #fbbf24;
+  --chart-count: #a78bfa;
+  --chart-primary: #fbbf24;
+  --chart-sub: rgba(240,236,255,0.55);
 }
 
 body {

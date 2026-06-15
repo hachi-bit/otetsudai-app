@@ -135,6 +135,7 @@ function getCheckedHistoryItems() {
 function renderSettings() {
   document.getElementById('parentNameDisplay').textContent = parentData.parentName;
   document.getElementById('parentIdDisplay').textContent = parentData.parentId;
+  document.getElementById('parentVersionDisplay').textContent = `おてつだい手帳 ${APP_VERSION}`;
   const cl = document.getElementById('settingsChildrenList');
   if (!parentData.children.length) { cl.innerHTML = '<p style="color:var(--p-text-sub);font-size:0.9rem;">登録なし</p>'; }
   else { cl.innerHTML = parentData.children.map((ch,i) => `
@@ -145,7 +146,7 @@ function renderSettings() {
       <div style="width:100%;display:flex;gap:8px;margin-top:4px;">
         <button class="btn btn-secondary" style="flex:1;padding:8px;font-size:0.8rem;" onclick="openShareChildModal(${i})">👨‍👩‍👧 共有</button>
         <button class="btn btn-secondary" style="flex:1;padding:8px;font-size:0.8rem;" onclick="openRestoreChildModal(${i})">🔄 復元</button>
-        <button class="btn btn-danger" style="padding:8px;font-size:0.8rem;" onclick="removeChild(${i})">削除</button>
+        <button class="btn btn-danger" style="padding:8px;font-size:0.8rem;" onclick="deleteChild(${i})">削除</button>
       </div>
     </div>`).join(''); }
   const chl = document.getElementById('settingsChoreList');
@@ -165,7 +166,18 @@ function selectChild(id) {
   show('choreSection');
   document.getElementById('choreSectionTitle').textContent = `🧹 ${getSelectedChild().name}のおてつだいを選ぶ`;
   hide('amountSection'); render();
+  renderParentCharts();
   document.getElementById('choreSection').scrollIntoView({behavior:'smooth'});
+}
+
+function renderParentCharts() {
+  const child = getSelectedChild();
+  const sec = document.getElementById('parentChartSection');
+  if (!child || !child.sentHistory || !child.sentHistory.length) { if(sec) sec.style.display='none'; return; }
+  if(sec) sec.style.display='block';
+  document.getElementById('parentChartTitle').textContent = `📊 ${child.name}のきろく`;
+  Chart.renderWeekly('parentWeeklyChart', 'parentWeeklyChartSummary', child.sentHistory);
+  Chart.renderMonthly('parentMonthlyChart', 'parentMonthlyChartSummary', child.sentHistory);
 }
 function selectChore(id) {
   selectedChoreId = id;
@@ -341,7 +353,7 @@ function onImportChoresScanned(data){closeImportChoresModal();if(data.t!=='chore
   Store.setParentData(parentData);toast(`${added}件インポート（重複スキップ）`,'success');render();}
 
 // ===== 子供削除 =====
-function removeChild(i){const ch=parentData.children[i];if(!confirm(`${ch.name}を削除？`))return;parentData.children.splice(i,1);
+function deleteChild(i){const ch=parentData.children[i];if(!confirm(`${ch.name}を削除？`))return;parentData.children.splice(i,1);
   if(selectedChildId===ch.childId){selectedChildId=null;hide('choreSection');}Store.setParentData(parentData);render();}
 
 // ===== ユーティリティ =====

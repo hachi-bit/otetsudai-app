@@ -1,5 +1,7 @@
 // storage.js - localStorage ラッパー
 
+const APP_VERSION = 'v1.0.0';
+
 const Store = {
   KEYS: {
     ROLE: 'ote_role',

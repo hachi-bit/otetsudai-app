@@ -12,6 +12,12 @@
   --p-danger: #ef4444;
   --p-success: #22c55e;
   --p-border: #e8e4f0;
+  --chart-grid: rgba(0,0,0,0.06);
+  --chart-label: rgba(0,0,0,0.35);
+  --chart-amount: #f59e0b;
+  --chart-count: #7c5cbf;
+  --chart-primary: #6c48c9;
+  --chart-sub: #6b6b80;
 }
 
 body {

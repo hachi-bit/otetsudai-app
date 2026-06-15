@@ -85,6 +85,27 @@
           <button class="btn btn-primary btn-block" style="margin-top:8px;" onclick="generateBatchQR('pending')">📦 チェックした分をまとめてQR作成</button>
         </div>
       </section>
+
+      <!-- グラフ（こども選択時に表示） -->
+      <section id="parentChartSection" style="display:none;">
+        <h2 class="section-title" id="parentChartTitle">📊 きろく</h2>
+        <div class="card" style="margin-bottom:12px;padding:16px;">
+          <h3 style="font-size:0.9rem;font-weight:700;margin-bottom:4px;">📅 週ごと</h3>
+          <div id="parentWeeklyChartSummary" style="font-size:0.85rem;margin-bottom:8px;"></div>
+          <canvas id="parentWeeklyChart" width="360" height="200" style="width:100%;height:auto;"></canvas>
+          <div style="display:flex;justify-content:center;gap:16px;margin-top:8px;font-size:0.75rem;color:var(--p-text-sub);">
+            <span>🟡 金額（円）</span><span>🟣 回数（回）</span>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:12px;padding:16px;">
+          <h3 style="font-size:0.9rem;font-weight:700;margin-bottom:4px;">📆 月ごと</h3>
+          <div id="parentMonthlyChartSummary" style="font-size:0.85rem;margin-bottom:8px;"></div>
+          <canvas id="parentMonthlyChart" width="360" height="200" style="width:100%;height:auto;"></canvas>
+          <div style="display:flex;justify-content:center;gap:16px;margin-top:8px;font-size:0.75rem;color:var(--p-text-sub);">
+            <span>🟡 金額（円）</span><span>🟣 回数（回）</span>
+          </div>
+        </div>
+      </section>
     </main>
 
     <!-- ===== タブ：履歴 ===== -->
@@ -123,6 +144,7 @@
       <div class="settings-section" style="margin-top:40px;">
         <button class="btn btn-danger btn-block" onclick="confirmReset()">🗑️ アカウントデータをすべて削除</button>
       </div>
+      <p style="text-align:center;margin-top:16px;font-size:0.75rem;color:var(--p-text-sub);" id="parentVersionDisplay"></p>
       
     </main>
 
@@ -228,6 +250,7 @@
   <script src="js/storage.js"></script>
   <script src="js/qrcode.min.js"></script>
   <script src="js/qr.js"></script>
+  <script src="js/chart.js"></script>
   <script src="js/parent.js"></script>
 </body>
 </html>
