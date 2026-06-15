@@ -185,6 +185,17 @@ function renderSettings() {
       <button class="header-btn" onclick="openEditChoreModal(${i})" style="color:var(--p-primary);">✎</button>
       <button class="header-btn" onclick="removeChore(${i})" style="color:var(--p-danger);">✕</button>
     </div>`).join(''); }
+  // 称号レベルリスト
+  const lvl = document.getElementById('settingsLevelList');
+  const levels = parentData.levels || Store.DEFAULT_LEVELS;
+  lvl.innerHTML = levels.map((lv,i) => `
+    <div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <span style="font-size:1.1rem;font-weight:800;color:var(--p-primary);min-width:32px;">Lv${lv.level}</span>
+      <span style="flex:1;font-weight:600;">${esc(lv.title)}</span>
+      <span style="font-size:0.85rem;color:var(--p-text-sub);">${lv.threshold}円〜</span>
+      <button class="header-btn" onclick="openEditLevelModal(${i})" style="color:var(--p-primary);">✎</button>
+      ${levels.length > 1 ? `<button class="header-btn" onclick="removeLevel(${i})" style="color:var(--p-danger);">✕</button>` : ''}
+    </div>`).join('');
 }
 
 // ===== 子供選択 & お手伝い =====
@@ -342,6 +353,10 @@ function onShareChildScanned(data){
   Store.setParentData(parentData); toast(`${data.a} ${data.n}を取得`,'success'); showRegQR(data.cid,data.n,data.a,data.ft); render();
 }
 
+function _compactLevels() {
+  return (parentData.levels||[]).map(lv => ({l:lv.level, th:lv.threshold, ti:lv.title}));
+}
+
 function showRegQR(cid,n,a,ft){document.getElementById('addChildModal').classList.add('active');hideAllSteps();show('addChildStep2');document.getElementById('addChildInfo').textContent=`${a} ${n} の登録QR`;
   setTimeout(()=>QR.generate('childRegQRDisplay',{t:'reg',pid:parentData.parentId,pn:parentData.parentName,cid,n,a,ft},200),100);}
 
@@ -378,6 +393,50 @@ function closeImportChoresModal(){document.getElementById('importChoresModal').c
 function onImportChoresScanned(data){closeImportChoresModal();if(data.t!=='chores'||!Array.isArray(data.items)){toast('テンプレートQRではありません','error');return;}
   let added=0;data.items.forEach(it=>{if(!parentData.chores.some(c=>c.name===it.n&&c.icon===it.i)){parentData.chores.push({id:'ch_'+Date.now()+'_'+Math.random().toString(36).substr(2,4),name:it.n,icon:it.i,amount:it.a});added++;}});
   Store.setParentData(parentData);toast(`${added}件インポート（重複スキップ）`,'success');render();}
+
+// ===== 称号レベル管理 =====
+function openAddLevelModal() {
+  document.getElementById('editLevelTitle').textContent = '🏆 称号を追加';
+  document.getElementById('editLevelIndex').value = '';
+  document.getElementById('editLevelThreshold').value = '';
+  document.getElementById('editLevelTitle2').value = '';
+  document.getElementById('editLevelModal').classList.add('active');
+}
+function openEditLevelModal(i) {
+  const lv = parentData.levels[i];
+  document.getElementById('editLevelTitle').textContent = '🏆 称号を編集';
+  document.getElementById('editLevelIndex').value = i;
+  document.getElementById('editLevelThreshold').value = lv.threshold;
+  document.getElementById('editLevelTitle2').value = lv.title;
+  document.getElementById('editLevelModal').classList.add('active');
+}
+function closeLevelModal() { document.getElementById('editLevelModal').classList.remove('active'); }
+function saveLevel() {
+  const threshold = parseInt(document.getElementById('editLevelThreshold').value);
+  const title = document.getElementById('editLevelTitle2').value.trim();
+  if (isNaN(threshold) || threshold < 0) { toast('金額を正しく入力してください','error'); return; }
+  if (!title) { toast('称号名を入力してください','error'); return; }
+  const idx = document.getElementById('editLevelIndex').value;
+  if (idx === '') { parentData.levels.push({ level:0, threshold, title }); toast(`${title}を追加`,'success'); }
+  else { parentData.levels[parseInt(idx)].threshold = threshold; parentData.levels[parseInt(idx)].title = title; toast(`${title}を更新`,'success'); }
+  parentData.levels.sort((a,b) => a.threshold - b.threshold);
+  parentData.levels.forEach((lv,j) => lv.level = j + 1);
+  Store.setParentData(parentData); closeLevelModal(); render();
+}
+function removeLevel(i) {
+  if (parentData.levels.length <= 1) { toast('最低1つは必要です','error'); return; }
+  const lv = parentData.levels[i];
+  if (!confirm(`Lv${lv.level} ${lv.title} を削除？`)) return;
+  parentData.levels.splice(i,1);
+  parentData.levels.forEach((lv,j) => lv.level = j + 1);
+  Store.setParentData(parentData); render();
+}
+function syncLevelsToChild() {
+  const qr = { t:'levels', items: parentData.levels.map(lv => ({l:lv.level, th:lv.threshold, ti:lv.title})) };
+  document.getElementById('syncLevelsModal').classList.add('active');
+  setTimeout(() => QR.generate('syncLevelsQRDisplay', qr, 220), 100);
+}
+function closeSyncLevelsModal() { document.getElementById('syncLevelsModal').classList.remove('active'); document.getElementById('syncLevelsQRDisplay').innerHTML=''; }
 
 // ===== 子供削除 =====
 function deleteChild(i){

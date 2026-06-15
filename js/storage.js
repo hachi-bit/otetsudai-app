@@ -1,6 +1,6 @@
 // storage.js - localStorage ラッパー
 
-const APP_VERSION = 'v1.1.0';
+const APP_VERSION = 'v1.2.0';
 
 const Store = {
   KEYS: {
@@ -42,6 +42,7 @@ const Store = {
         { id: 't7', name: '部屋の片づけ', amount: 80, icon: '🧸' },
         { id: 't8', name: 'お買い物手伝い', amount: 100, icon: '🛒' },
       ],
+      levels: JSON.parse(JSON.stringify(this.DEFAULT_LEVELS)),
     };
     this.setParentData(data);
     return data;
@@ -58,8 +59,10 @@ const Store = {
       delete data.customChores;
       this.setParentData(data);
     }
-    if (!data.chores) {
-      data.chores = [];
+    if (!data.chores) data.chores = [];
+    if (!data.levels) {
+      data.levels = JSON.parse(JSON.stringify(this.DEFAULT_LEVELS));
+      this.setParentData(data);
     }
     return data;
   },
@@ -73,8 +76,8 @@ const Store = {
     localStorage.setItem(this.KEYS.CHILD_DATA, JSON.stringify(data));
   },
 
-  // --- 子供のレベル計算 ---
-  LEVELS: [
+  // --- デフォルトレベル定義 ---
+  DEFAULT_LEVELS: [
     { level: 1, threshold: 0,     title: 'かけだし' },
     { level: 2, threshold: 500,   title: 'がんばりや' },
     { level: 3, threshold: 1500,  title: 'おてつだいマスター' },
@@ -82,15 +85,23 @@ const Store = {
     { level: 5, threshold: 5000,  title: 'おてつだいヒーロー' },
     { level: 6, threshold: 10000, title: 'でんせつのヘルパー' },
   ],
-  calcLevel(totalEarned) {
-    let current = this.LEVELS[0];
-    for (const lv of this.LEVELS) {
+
+  // --- レベル取得（カスタム or デフォルト） ---
+  getLevels(customLevels) {
+    return (customLevels && customLevels.length > 0) ? customLevels : this.DEFAULT_LEVELS;
+  },
+
+  calcLevel(totalEarned, customLevels) {
+    const levels = this.getLevels(customLevels);
+    let current = levels[0];
+    for (const lv of levels) {
       if (totalEarned >= lv.threshold) current = lv;
     }
     return current;
   },
-  getNextLevel(totalEarned) {
-    for (const lv of this.LEVELS) {
+  getNextLevel(totalEarned, customLevels) {
+    const levels = this.getLevels(customLevels);
+    for (const lv of levels) {
       if (totalEarned < lv.threshold) return lv;
     }
     return null;

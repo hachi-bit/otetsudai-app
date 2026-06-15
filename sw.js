@@ -1,6 +1,6 @@
 // sw.js - Service Worker (PWA オフライン対応)
 
-const CACHE_NAME = 'otetsudai-v12';
+const CACHE_NAME = 'otetsudai-v13';
 const ASSETS = [
   './',
   './index.html',

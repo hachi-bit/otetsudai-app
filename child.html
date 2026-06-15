@@ -112,6 +112,10 @@
         ＋ おやを追加（QRスキャン）
       </button>
 
+      <button class="btn btn-block" style="background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border);margin-top:8px;" onclick="openLevelsScan()">
+        🏆 称号を同期（QRスキャン）
+      </button>
+
       <button class="btn btn-block" style="background:rgba(239,68,68,0.15);color:#ef4444;margin-top:24px;" onclick="confirmReset()">
         🗑️ アカウントデータをすべて削除
       </button>
@@ -162,6 +166,16 @@
         <span class="tab-icon">⚙️</span> 設定
       </button>
     </nav>
+  </div>
+
+  <!-- ========== モーダル：称号同期スキャン ========== -->
+  <div class="modal-overlay" id="levelsScanModal">
+    <div class="modal">
+      <h2>🏆 称号QRをよみとろう</h2>
+      <p style="font-size:0.85rem;color:var(--c-text-sub);margin-bottom:12px;">おやの「子と同期」QRをスキャンしてね</p>
+      <div id="levelsScanReader"></div>
+      <button class="btn btn-secondary btn-block" style="margin-top:12px;" onclick="closeLevelsScan()">キャンセル</button>
+    </div>
   </div>
 
   <!-- ========== モーダル：親追加QRスキャン ========== -->

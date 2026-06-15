@@ -64,8 +64,15 @@ function handleIncomingQR(data) {
       return;
     }
     showApp();
-    // 少し遅延させてUIが描画されてから処理
     setTimeout(() => onRewardScanned(data), 300);
+    return;
+  }
+
+  // 称号レベル同期QR
+  if (data.t === 'levels') {
+    if (!childData) { showSetup(); showToast('まず登録をしてね', 'error'); return; }
+    showApp();
+    applyLevelsFromQR(data);
     return;
   }
 
@@ -105,6 +112,7 @@ function onSetupScanned(data) {
 
   const balance = data.bal || 0;
   const isRestore = data.t === 'restore';
+
   Store.setRole('child');
   childData = {
     role: 'child',
@@ -119,6 +127,7 @@ function onSetupScanned(data) {
     familyToken: data.ft,
     scannedSeqs: [],
     restoredAt: isRestore ? Date.now() : null,
+    levels: null,
   };
   Store.setChildData(childData);
 
@@ -143,8 +152,8 @@ function render() {
   document.getElementById('avatarDisplay').textContent = childData.avatar;
   document.getElementById('childNameDisplay').textContent = childData.name;
 
-  const level = Store.calcLevel(childData.totalEarned);
-  const nextLevel = Store.getNextLevel(childData.totalEarned);
+  const level = Store.calcLevel(childData.totalEarned, getChildLevels());
+  const nextLevel = Store.getNextLevel(childData.totalEarned, getChildLevels());
   childData.level = level.level;
   document.getElementById('levelBadge').textContent = `Lv.${level.level} ${level.title}`;
   document.getElementById('balanceDisplay').textContent = childData.balance.toLocaleString();
@@ -197,7 +206,7 @@ function historyItemHTML(h) {
 }
 
 function renderSettings() {
-  const level = Store.calcLevel(childData.totalEarned);
+  const level = Store.calcLevel(childData.totalEarned, getChildLevels());
   document.getElementById('settingsName').textContent = `${childData.avatar} ${childData.name}`;
   document.getElementById('settingsLevel').textContent = `Lv.${level.level} ${level.title}（累計 ${childData.totalEarned}円）`;
   document.getElementById('childVersionDisplay').textContent = `おてつだい手帳 ${APP_VERSION}`;
@@ -362,7 +371,7 @@ async function processRewardItems(items, pid, pn) {
     return;
   }
 
-  const prevLevel = Store.calcLevel(childData.totalEarned);
+  const prevLevel = Store.calcLevel(childData.totalEarned, getChildLevels());
   let totalAdded = 0;
 
   newItems.forEach(it => {
@@ -379,7 +388,7 @@ async function processRewardItems(items, pid, pn) {
 
   Store.setChildData(childData);
 
-  const newLevel = Store.calcLevel(childData.totalEarned);
+  const newLevel = Store.calcLevel(childData.totalEarned, getChildLevels());
   const didLevelUp = newLevel.level > prevLevel.level;
   const skipped = items.length - newItems.length;
 
@@ -440,6 +449,43 @@ function escHtml(s) { const d = document.createElement('div'); d.textContent = s
 function formatDate(ts) {
   const d = new Date(ts);
   return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+}
+
+// ========== 称号レベル同期 ==========
+
+function applyLevelsFromQR(data) {
+  if (!data.items || !Array.isArray(data.items)) { showToast('称号データが不正です','error'); return; }
+  childData.levels = data.items.map(it => ({ level: it.l, threshold: it.th, title: it.ti }));
+  Store.setChildData(childData);
+  showToast(`称号を${data.items.length}件同期しました！`,'success');
+  render();
+}
+
+// --- アプリ内称号スキャン ---
+let levelsScanner = null;
+function openLevelsScan() {
+  document.getElementById('levelsScanModal').classList.add('active');
+  setTimeout(async () => {
+    try {
+      levelsScanner = await QR.startScanner('levelsScanReader', onLevelsScanned, (err) => {
+        showToast(err,'error'); closeLevelsScan();
+      });
+    } catch(e) { showToast('カメラ起動失敗','error'); closeLevelsScan(); }
+  }, 300);
+}
+function closeLevelsScan() {
+  document.getElementById('levelsScanModal').classList.remove('active');
+  QR.stopScanner(levelsScanner); levelsScanner = null;
+  document.getElementById('levelsScanReader').innerHTML = '';
+}
+function onLevelsScanned(data) {
+  closeLevelsScan();
+  if (data.t !== 'levels') { showToast('称号QRではありません','error'); return; }
+  applyLevelsFromQR(data);
+}
+
+function getChildLevels() {
+  return (childData && childData.levels && childData.levels.length > 0) ? childData.levels : null;
 }
 
 // ========== グラフ描画 ==========

@@ -20,7 +20,7 @@ const QR = {
   _getTargetPage(type) {
     switch (type) {
       case 'share': case 'chores': return 'parent.html';
-      default: return 'child.html'; // reg, restore, rwd, batch
+      default: return 'child.html'; // reg, restore, rwd, batch, levels
     }
   },
 
