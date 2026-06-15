@@ -2,17 +2,21 @@
 
 const Chart = {
 
-  // --- 週ごとデータ集計 ---
+  // --- 週ごとデータ集計（日曜始まり） ---
   getWeeklyData(weeks, history) {
     const now = new Date();
+    const dayOfWeek = now.getDay(); // 0=日, 1=月, ...
+    const thisSunday = new Date(now);
+    thisSunday.setDate(now.getDate() - dayOfWeek);
+    thisSunday.setHours(0, 0, 0, 0);
+
     const result = [];
     for (let w = weeks - 1; w >= 0; w--) {
-      const weekEnd = new Date(now);
-      weekEnd.setDate(now.getDate() - w * 7);
+      const weekStart = new Date(thisSunday);
+      weekStart.setDate(thisSunday.getDate() - w * 7);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
       weekEnd.setHours(23, 59, 59, 999);
-      const weekStart = new Date(weekEnd);
-      weekStart.setDate(weekEnd.getDate() - 6);
-      weekStart.setHours(0, 0, 0, 0);
 
       let amount = 0, count = 0;
       history.forEach(h => {
