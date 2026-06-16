@@ -1,6 +1,6 @@
 // storage.js - localStorage ラッパー
 
-const APP_VERSION = 'v1.2.0';
+const APP_VERSION = 'v1.3.0';
 
 const Store = {
   KEYS: {

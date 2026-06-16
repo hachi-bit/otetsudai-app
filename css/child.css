@@ -455,3 +455,9 @@ body::before {
 .setup-input::placeholder {
   color: var(--c-text-sub);
 }
+
+/* トロフィーアニメーション */
+@keyframes trophyPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}

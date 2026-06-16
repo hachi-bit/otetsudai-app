@@ -6,6 +6,14 @@ let rewardScanner = null;
 let addParentScanner = null;
 const AVATARS = ['🦁','🐱','🐶','🐰','🦊','🐼','🐸','🐧','🦄','🐲','🌟','🚀'];
 
+const TROPHIES = [
+  { threshold: 200,  icon: '🥉', name: 'ブロンズ', color: '#cd7f32' },
+  { threshold: 400,  icon: '🥈', name: 'シルバー', color: '#c0c0c0' },
+  { threshold: 600,  icon: '🥇', name: 'ゴールド', color: '#ffd700' },
+  { threshold: 800,  icon: '🏆', name: 'プラチナ', color: '#e5e4e2' },
+  { threshold: 1000, icon: '👑', name: 'ダイヤモンド', color: '#b9f2ff' },
+];
+
 // ========== 初期化 ==========
 document.addEventListener('DOMContentLoaded', () => {
   childData = Store.getChildData();
@@ -171,6 +179,25 @@ function render() {
 
   renderRecentHistory();
   renderSettings();
+  renderTrophies();
+}
+
+function renderTrophies() {
+  const shelf = document.getElementById('trophyShelf');
+  if (!shelf || !childData) return;
+  const earned = childData.totalEarned || 0;
+
+  shelf.innerHTML = TROPHIES.map(t => {
+    const unlocked = earned >= t.threshold;
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;
+      opacity:${unlocked ? '1' : '0.25'};
+      filter:${unlocked ? 'none' : 'grayscale(1)'};
+      transition:all 0.3s;">
+      <span style="font-size:2rem;${unlocked ? 'animation:trophyPulse 2s ease infinite;' : ''}">${t.icon}</span>
+      <span style="font-size:0.6rem;color:${unlocked ? t.color : 'var(--c-text-sub)'};font-weight:700;">${t.name}</span>
+      <span style="font-size:0.55rem;color:var(--c-text-sub);">${t.threshold}円</span>
+    </div>`;
+  }).join('');
 }
 
 function renderRecentHistory() {
@@ -213,7 +240,6 @@ function renderSettings() {
 
   // アイコンピッカー
   const picker = document.getElementById('settingsAvatarPicker');
-  const currentLevel = Store.calcLevel(childData.totalEarned, getChildLevels());
   let avatarHtml = AVATARS.map(a => `
     <div style="font-size:1.8rem;width:48px;height:48px;display:flex;align-items:center;justify-content:center;
       background:${a === childData.avatar ? 'rgba(251,191,36,0.2)' : 'var(--c-surface)'};
@@ -221,19 +247,17 @@ function renderSettings() {
       border-radius:50%;cursor:pointer;" onclick="changeAvatar('${a}')">${a}</div>
   `).join('');
 
-  if (currentLevel.level >= 5) {
-    avatarHtml += `
-      <div style="width:100%;margin-top:8px;text-align:center;">
-        <p style="font-size:0.75rem;color:var(--c-primary);margin-bottom:6px;">🎉 Lv5とくてん：すきなえもじをアイコンにできるよ！</p>
-        <div style="display:flex;gap:8px;justify-content:center;align-items:center;">
-          <input type="text" id="customEmojiInput" maxlength="2" placeholder="😎"
-            style="width:56px;height:56px;font-size:2rem;text-align:center;border-radius:50%;
-            background:var(--c-surface);border:2px solid var(--c-border);color:var(--c-text);">
-          <button onclick="applyCustomEmoji()" style="background:var(--c-primary);color:#1e1650;border:none;
-            padding:8px 16px;border-radius:8px;font-weight:700;font-size:0.85rem;cursor:pointer;">けってい</button>
-        </div>
-      </div>`;
-  }
+  avatarHtml += `
+    <div style="width:100%;margin-top:8px;text-align:center;">
+      <p style="font-size:0.75rem;color:var(--c-text-sub);margin-bottom:6px;">すきなえもじをアイコンにできるよ！</p>
+      <div style="display:flex;gap:8px;justify-content:center;align-items:center;">
+        <input type="text" id="customEmojiInput" maxlength="2" placeholder="😎"
+          style="width:56px;height:56px;font-size:2rem;text-align:center;border-radius:50%;
+          background:var(--c-surface);border:2px solid var(--c-border);color:var(--c-text);">
+        <button onclick="applyCustomEmoji()" style="background:var(--c-primary);color:#1e1650;border:none;
+          padding:8px 16px;border-radius:8px;font-weight:700;font-size:0.85rem;cursor:pointer;">けってい</button>
+      </div>
+    </div>`;
   picker.innerHTML = avatarHtml;
 
   const parentList = document.getElementById('settingsParentList');
@@ -437,6 +461,17 @@ async function processRewardItems(items, pid, pn) {
   document.getElementById('receiveSuccessModal').classList.add('active');
   setTimeout(() => Confetti.burst(document.body), 200);
   if (didLevelUp) setTimeout(() => Confetti.levelUp(document.body, newLevel), 1200);
+
+  // トロフィー獲得チェック
+  const prevTotal = childData.totalEarned - totalAdded;
+  const newTrophies = TROPHIES.filter(t => prevTotal < t.threshold && childData.totalEarned >= t.threshold);
+  if (newTrophies.length > 0) {
+    const trophy = newTrophies[newTrophies.length - 1];
+    const delay = didLevelUp ? 3500 : 1200;
+    setTimeout(() => {
+      showToast(`${trophy.icon} ${trophy.name}トロフィー獲得！`, 'success');
+    }, delay);
+  }
 
   render();
 }
