@@ -17,32 +17,30 @@ const TROPHIES = [
 // ========== 初期化 ==========
 document.addEventListener('DOMContentLoaded', () => {
   childData = Store.getChildData();
-
-  // URLハッシュにQRデータがあるかチェック
-  const hash = window.location.hash.substring(1);
-  if (hash) {
-    // ハッシュをクリア（履歴に残さない）
-    history.replaceState(null, '', window.location.pathname);
-    try {
-      const data = QR.parseQRText(hash.startsWith('http') ? hash : 'x#' + hash);
-      // ↑ hashだけの場合はparseQRTextのBase64パスで処理
-      handleIncomingQR(data);
-      return;
-    } catch(e) {
-      // ハッシュ解析失敗 → 通常フローへ
-      try {
-        const jsonStr = QR.fromBase64(hash);
-        const data = JSON.parse(jsonStr);
-        handleIncomingQR(data);
-        return;
-      } catch(e2) {}
-    }
-  }
-
-  // 通常フロー
+  if (processUrlHash()) return;
   if (!childData) showSetup();
   else showApp();
 });
+
+// ハッシュ変更時も処理（アプリ開いたままURLが開かれた場合）
+window.addEventListener('hashchange', () => {
+  processUrlHash();
+});
+
+function processUrlHash() {
+  const hash = window.location.hash.substring(1);
+  if (!hash) return false;
+  history.replaceState(null, '', window.location.pathname);
+  try {
+    const jsonStr = QR.fromBase64(hash);
+    const data = JSON.parse(jsonStr);
+    handleIncomingQR(data);
+    return true;
+  } catch(e) {
+    console.error('Hash parse failed:', e);
+    return false;
+  }
+}
 
 // ========== URL経由のQRデータ処理 ==========
 function handleIncomingQR(data) {
@@ -135,7 +133,7 @@ function onSetupScanned(data) {
     familyToken: data.ft,
     scannedSeqs: [],
     restoredAt: isRestore ? Date.now() : null,
-    levels: null,
+    levels: JSON.parse(JSON.stringify(Store.DEFAULT_LEVELS)),
   };
   Store.setChildData(childData);
 
@@ -237,6 +235,18 @@ function renderSettings() {
   document.getElementById('settingsName').textContent = `${childData.avatar} ${childData.name}`;
   document.getElementById('settingsLevel').textContent = `Lv.${level.level} ${level.title}（累計 ${childData.totalEarned}円）`;
   document.getElementById('childVersionDisplay').textContent = `おてつだい手帳 ${APP_VERSION}`;
+
+  // 称号デバッグ表示
+  const levelsInfo = document.getElementById('settingsLevelsInfo');
+  if (levelsInfo) {
+    const cl = getChildLevels();
+    if (cl) {
+      levelsInfo.innerHTML = `<span style="color:var(--c-primary);">カスタム称号: ${cl.length}件</span><br>` +
+        cl.map(lv => `Lv${lv.level} ${lv.title}（${lv.threshold}円〜）`).join('<br>');
+    } else {
+      levelsInfo.textContent = 'デフォルト称号を使用中';
+    }
+  }
 
   // アイコンピッカー
   const picker = document.getElementById('settingsAvatarPicker');
@@ -549,7 +559,12 @@ function onLevelsScanned(data) {
 }
 
 function getChildLevels() {
-  return (childData && childData.levels && childData.levels.length > 0) ? childData.levels : null;
+  // 旧データ（levels: null）の移行対応
+  if (childData && (!childData.levels || childData.levels.length === 0)) {
+    childData.levels = JSON.parse(JSON.stringify(Store.DEFAULT_LEVELS));
+    Store.setChildData(childData);
+  }
+  return childData ? childData.levels : null;
 }
 
 // ========== グラフ描画 ==========

@@ -17,18 +17,23 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!parentData) { show('setupScreen'); hide('appScreen'); return; }
   parentData = Store.migrateParentData(parentData);
   showApp();
-
-  // URLハッシュにQRデータがあるかチェック
-  const hash = window.location.hash.substring(1);
-  if (hash) {
-    history.replaceState(null, '', window.location.pathname);
-    try {
-      const jsonStr = QR.fromBase64(hash);
-      const data = JSON.parse(jsonStr);
-      handleIncomingParentQR(data);
-    } catch(e) {}
-  }
+  processParentUrlHash();
 });
+
+window.addEventListener('hashchange', () => {
+  processParentUrlHash();
+});
+
+function processParentUrlHash() {
+  const hash = window.location.hash.substring(1);
+  if (!hash) return;
+  history.replaceState(null, '', window.location.pathname);
+  try {
+    const jsonStr = QR.fromBase64(hash);
+    const data = JSON.parse(jsonStr);
+    handleIncomingParentQR(data);
+  } catch(e) {}
+}
 
 // ===== URL経由のQRデータ処理 =====
 function handleIncomingParentQR(data) {
