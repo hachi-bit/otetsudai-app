@@ -1,11 +1,15 @@
 // chart.js - 共通グラフ描画モジュール（親・子で共用）
+// タップで詳細表示対応
 
 const Chart = {
+
+  // 描画済みデータポイントの座標を保持（タップ判定用）
+  _chartData: {},
 
   // --- 週ごとデータ集計（日曜始まり） ---
   getWeeklyData(weeks, history) {
     const now = new Date();
-    const dayOfWeek = now.getDay(); // 0=日, 1=月, ...
+    const dayOfWeek = now.getDay();
     const thisSunday = new Date(now);
     thisSunday.setDate(now.getDate() - dayOfWeek);
     thisSunday.setHours(0, 0, 0, 0);
@@ -85,7 +89,7 @@ const Chart = {
     this.drawChart(chartId, data);
   },
 
-  // --- 共通折れ線グラフ描画（2軸：金額 + 回数） ---
+  // --- 共通折れ線グラフ描画（2軸：金額 + 回数）+ タップ対応 ---
   drawChart(canvasId, data) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
@@ -109,7 +113,7 @@ const Chart = {
     const maxAmt = Math.max(...amounts, 100);
     const maxCnt = Math.max(...counts, 1);
 
-    // テーマカラー取得（CSS変数 or デフォルト）
+    // テーマカラー取得
     const style = getComputedStyle(canvas);
     const gridColor = style.getPropertyValue('--chart-grid').trim() || 'rgba(200,200,200,0.2)';
     const labelColor = style.getPropertyValue('--chart-label').trim() || 'rgba(150,150,150,0.6)';
@@ -149,6 +153,20 @@ const Chart = {
       ctx.fillText(val, w - pad.right + 4, pad.top + (ch / 4) * i + 3);
     }
 
+    // データポイントの座標を記録
+    const points = [];
+    function calcX(i) { return pad.left + (cw / (data.length - 1 || 1)) * i; }
+    function calcY(v, max) { return pad.top + ch - (v / max) * ch; }
+
+    data.forEach((d, i) => {
+      points.push({
+        x: calcX(i),
+        label: d.label,
+        amount: d.amount,
+        count: d.count
+      });
+    });
+
     // 折れ線描画
     function drawLine(values, maxVal, color) {
       if (data.length < 2) return;
@@ -158,15 +176,14 @@ const Chart = {
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
       values.forEach((v, i) => {
-        const x = pad.left + (cw / (data.length - 1)) * i;
-        const y = pad.top + ch - (v / maxVal) * ch;
+        const x = calcX(i);
+        const y = calcY(v, maxVal);
         if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       });
       ctx.stroke();
-      // ドット
       values.forEach((v, i) => {
-        const x = pad.left + (cw / (data.length - 1)) * i;
-        const y = pad.top + ch - (v / maxVal) * ch;
+        const x = calcX(i);
+        const y = calcY(v, maxVal);
         ctx.beginPath();
         ctx.arc(x, y, 3.5, 0, Math.PI * 2);
         ctx.fillStyle = color;
@@ -176,5 +193,86 @@ const Chart = {
 
     drawLine(amounts, maxAmt, amtColor);
     drawLine(counts, maxCnt, cntColor);
+
+    // タップ用のデータとイベント登録
+    this._chartData[canvasId] = { points, pad, ch, maxAmt, maxCnt, amtColor, cntColor };
+    canvas.onclick = null;
+    canvas.onclick = (e) => this._onChartTap(e, canvasId);
+  },
+
+  // --- タップ時の処理 ---
+  _onChartTap(e, canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const tapX = e.clientX - rect.left;
+    const chartInfo = this._chartData[canvasId];
+    if (!chartInfo) return;
+
+    // 最も近いデータポイントを探す
+    let closest = null;
+    let minDist = Infinity;
+    chartInfo.points.forEach(p => {
+      const dist = Math.abs(p.x - tapX);
+      if (dist < minDist) { minDist = dist; closest = p; }
+    });
+
+    if (!closest || minDist > 40) {
+      this._hideTooltip(canvasId);
+      return;
+    }
+
+    // ツールチップ表示
+    this._showTooltip(canvasId, closest, rect);
+  },
+
+  // --- ツールチップ表示 ---
+  _showTooltip(canvasId, point, canvasRect) {
+    let tooltip = document.getElementById(canvasId + '_tooltip');
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.id = canvasId + '_tooltip';
+      tooltip.style.cssText = 'position:absolute;padding:8px 12px;border-radius:8px;font-size:0.8rem;font-weight:700;pointer-events:none;z-index:50;transition:opacity 0.15s,transform 0.15s;box-shadow:0 2px 8px rgba(0,0,0,0.2);';
+      const parent = document.getElementById(canvasId).parentElement;
+      parent.style.position = 'relative';
+      parent.appendChild(tooltip);
+    }
+
+    const chartInfo = this._chartData[canvasId];
+    const bg = getComputedStyle(document.body).backgroundColor || '#1e1650';
+    tooltip.style.background = bg;
+    tooltip.style.border = `1px solid ${chartInfo.amtColor}`;
+    tooltip.style.color = getComputedStyle(document.body).color || '#fff';
+
+    tooltip.innerHTML = `
+      <div style="text-align:center;margin-bottom:4px;opacity:0.7;">${point.label}</div>
+      <div style="color:${chartInfo.amtColor};">💰 ${point.amount}円</div>
+      <div style="color:${chartInfo.cntColor};">📋 ${point.count}回</div>
+    `;
+
+    // 位置計算（canvas内の相対位置）
+    const canvas = document.getElementById(canvasId);
+    const parentRect = canvas.parentElement.getBoundingClientRect();
+    let left = point.x - 50;
+    if (left < 0) left = 0;
+    if (left + 100 > canvas.clientWidth) left = canvas.clientWidth - 100;
+
+    tooltip.style.left = left + 'px';
+    tooltip.style.bottom = (canvas.clientHeight + 8) + 'px';
+    tooltip.style.opacity = '1';
+    tooltip.style.transform = 'translateY(0)';
+
+    // 3秒後に自動非表示
+    clearTimeout(tooltip._hideTimer);
+    tooltip._hideTimer = setTimeout(() => this._hideTooltip(canvasId), 3000);
+  },
+
+  // --- ツールチップ非表示 ---
+  _hideTooltip(canvasId) {
+    const tooltip = document.getElementById(canvasId + '_tooltip');
+    if (tooltip) {
+      tooltip.style.opacity = '0';
+      tooltip.style.transform = 'translateY(4px)';
+    }
   }
 };
