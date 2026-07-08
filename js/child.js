@@ -469,18 +469,20 @@ async function processRewardItems(items, pid, pn) {
   }
 
   document.getElementById('receiveSuccessModal').classList.add('active');
-  setTimeout(() => Confetti.burst(document.body), 200);
-  if (didLevelUp) setTimeout(() => Confetti.levelUp(document.body, newLevel), 1200);
+  setTimeout(() => Confetti.burst(document.body, totalAdded), 200);
 
   // トロフィー獲得チェック
   const prevTotal = childData.totalEarned - totalAdded;
   const newTrophies = TROPHIES.filter(t => prevTotal < t.threshold && childData.totalEarned >= t.threshold);
+
+  let nextDelay = 1200;
+  if (didLevelUp) {
+    setTimeout(() => Confetti.levelUp(document.body, newLevel), nextDelay);
+    nextDelay += 3200;
+  }
   if (newTrophies.length > 0) {
     const trophy = newTrophies[newTrophies.length - 1];
-    const delay = didLevelUp ? 3500 : 1200;
-    setTimeout(() => {
-      showToast(`${trophy.icon} ${trophy.name}トロフィー獲得！`, 'success');
-    }, delay);
+    setTimeout(() => Confetti.trophyUnlock(document.body, trophy), nextDelay);
   }
 
   render();
