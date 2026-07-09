@@ -182,7 +182,21 @@ function renderTrophies() {
 
   if (displayLevels.length === 0) { shelf.innerHTML = ''; return; }
 
-  shelf.innerHTML = displayLevels.map(lv => {
+  // 現在の到達段階（最後にクリアしたトロフィーのインデックス）を求める
+  let currentIndex = -1;
+  displayLevels.forEach((lv, i) => { if (earned >= lv.threshold) currentIndex = i; });
+  if (currentIndex === -1) currentIndex = 0; // まだ1つも達成してなければ先頭を基準に
+
+  // 現在地を中心に5個のウィンドウを計算（端では詰めてスライド）
+  const WINDOW = 5;
+  const total = displayLevels.length;
+  let start = currentIndex - Math.floor(WINDOW / 2);
+  start = Math.max(0, Math.min(start, total - WINDOW));
+  if (start < 0) start = 0;
+  const end = Math.min(total, start + WINDOW);
+  const visible = displayLevels.slice(start, end);
+
+  shelf.innerHTML = visible.map(lv => {
     const unlocked = earned >= lv.threshold;
     return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;
       opacity:${unlocked ? '1' : '0.25'};
