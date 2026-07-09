@@ -1,6 +1,6 @@
 // storage.js - localStorage ラッパー
 
-const APP_VERSION = 'v1.4.0';
+const APP_VERSION = 'v1.5.0';
 
 const Store = {
   KEYS: {
@@ -78,12 +78,12 @@ const Store = {
 
   // --- デフォルトレベル定義 ---
   DEFAULT_LEVELS: [
-    { level: 1, threshold: 0,     title: 'かけだし' },
-    { level: 2, threshold: 500,   title: 'がんばりや' },
-    { level: 3, threshold: 1500,  title: 'おてつだいマスター' },
-    { level: 4, threshold: 3000,  title: 'スーパーヘルパー' },
-    { level: 5, threshold: 5000,  title: 'おてつだいヒーロー' },
-    { level: 6, threshold: 10000, title: 'でんせつのヘルパー' },
+    { level: 1, threshold: 0,     title: 'かけだし',           icon: '🔰' },
+    { level: 2, threshold: 500,   title: 'がんばりや',         icon: '🥉' },
+    { level: 3, threshold: 1500,  title: 'おてつだいマスター', icon: '🥈' },
+    { level: 4, threshold: 3000,  title: 'スーパーヘルパー',   icon: '🥇' },
+    { level: 5, threshold: 5000,  title: 'おてつだいヒーロー', icon: '🏆' },
+    { level: 6, threshold: 10000, title: 'でんせつのヘルパー', icon: '👑' },
   ],
 
   // --- レベル取得（カスタム or デフォルト） ---

@@ -6,14 +6,6 @@ let rewardScanner = null;
 let addParentScanner = null;
 const AVATARS = ['🦁','🐱','🐶','🐰','🦊','🐼','🐸','🐧','🦄','🐲','🌟','🚀'];
 
-const TROPHIES = [
-  { threshold: 200,  icon: '🥉', name: 'ブロンズ', color: '#cd7f32' },
-  { threshold: 400,  icon: '🥈', name: 'シルバー', color: '#c0c0c0' },
-  { threshold: 600,  icon: '🥇', name: 'ゴールド', color: '#ffd700' },
-  { threshold: 800,  icon: '🏆', name: 'プラチナ', color: '#e5e4e2' },
-  { threshold: 1000, icon: '👑', name: 'ダイヤモンド', color: '#b9f2ff' },
-];
-
 // ========== 初期化 ==========
 document.addEventListener('DOMContentLoaded', () => {
   childData = Store.getChildData();
@@ -161,7 +153,7 @@ function render() {
   const level = Store.calcLevel(childData.totalEarned, getChildLevels());
   const nextLevel = Store.getNextLevel(childData.totalEarned, getChildLevels());
   childData.level = level.level;
-  document.getElementById('levelBadge').textContent = `Lv.${level.level} ${level.title}`;
+  document.getElementById('levelBadge').textContent = `${level.icon || '🏆'} Lv.${level.level} ${level.title}`;
   document.getElementById('balanceDisplay').textContent = childData.balance.toLocaleString();
 
   if (nextLevel) {
@@ -184,16 +176,21 @@ function renderTrophies() {
   const shelf = document.getElementById('trophyShelf');
   if (!shelf || !childData) return;
   const earned = childData.totalEarned || 0;
+  const levels = getChildLevels() || Store.DEFAULT_LEVELS;
+  // threshold=0（初期称号）は棚に並べる必要がないので除外
+  const displayLevels = levels.filter(lv => lv.threshold > 0);
 
-  shelf.innerHTML = TROPHIES.map(t => {
-    const unlocked = earned >= t.threshold;
+  if (displayLevels.length === 0) { shelf.innerHTML = ''; return; }
+
+  shelf.innerHTML = displayLevels.map(lv => {
+    const unlocked = earned >= lv.threshold;
     return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;
       opacity:${unlocked ? '1' : '0.25'};
       filter:${unlocked ? 'none' : 'grayscale(1)'};
       transition:all 0.3s;">
-      <span style="font-size:2rem;${unlocked ? 'animation:trophyPulse 2s ease infinite;' : ''}">${t.icon}</span>
-      <span style="font-size:0.6rem;color:${unlocked ? t.color : 'var(--c-text-sub)'};font-weight:700;">${t.name}</span>
-      <span style="font-size:0.55rem;color:var(--c-text-sub);">${t.threshold}円</span>
+      <span style="font-size:2rem;${unlocked ? 'animation:trophyPulse 2s ease infinite;' : ''}">${lv.icon || '🏆'}</span>
+      <span style="font-size:0.6rem;color:${unlocked ? 'var(--c-primary)' : 'var(--c-text-sub)'};font-weight:700;">${esc(lv.title)}</span>
+      <span style="font-size:0.55rem;color:var(--c-text-sub);">${lv.threshold}円</span>
     </div>`;
   }).join('');
 }
@@ -233,19 +230,17 @@ function historyItemHTML(h) {
 function renderSettings() {
   const level = Store.calcLevel(childData.totalEarned, getChildLevels());
   document.getElementById('settingsName').textContent = `${childData.avatar} ${childData.name}`;
-  document.getElementById('settingsLevel').textContent = `Lv.${level.level} ${level.title}（累計 ${childData.totalEarned}円）`;
+  document.getElementById('settingsLevel').textContent = `${level.icon || '🏆'} Lv.${level.level} ${level.title}（累計 ${childData.totalEarned}円）`;
   document.getElementById('childVersionDisplay').textContent = `おてつだい手帳 ${APP_VERSION}`;
 
-  // 称号デバッグ表示
+  // 称号一覧表示
   const levelsInfo = document.getElementById('settingsLevelsInfo');
   if (levelsInfo) {
-    const cl = getChildLevels();
-    if (cl) {
-      levelsInfo.innerHTML = `<span style="color:var(--c-primary);">カスタム称号: ${cl.length}件</span><br>` +
-        cl.map(lv => `Lv${lv.level} ${lv.title}（${lv.threshold}円〜）`).join('<br>');
-    } else {
-      levelsInfo.textContent = 'デフォルト称号を使用中';
-    }
+    const cl = getChildLevels() || Store.DEFAULT_LEVELS;
+    levelsInfo.innerHTML = cl.map(lv => {
+      const unlocked = childData.totalEarned >= lv.threshold;
+      return `<div style="opacity:${unlocked ? '1' : '0.5'};margin-bottom:2px;">${lv.icon || '🏆'} Lv${lv.level} ${esc(lv.title)}（${lv.threshold}円〜）${unlocked ? ' ✓' : ''}</div>`;
+    }).join('');
   }
 
   // アイコンピッカー
@@ -471,18 +466,9 @@ async function processRewardItems(items, pid, pn) {
   document.getElementById('receiveSuccessModal').classList.add('active');
   setTimeout(() => Confetti.burst(document.body, totalAdded), 200);
 
-  // トロフィー獲得チェック
-  const prevTotal = childData.totalEarned - totalAdded;
-  const newTrophies = TROPHIES.filter(t => prevTotal < t.threshold && childData.totalEarned >= t.threshold);
-
-  let nextDelay = 1200;
+  // レベルアップ（称号獲得）演出
   if (didLevelUp) {
-    setTimeout(() => Confetti.levelUp(document.body, newLevel), nextDelay);
-    nextDelay += 3200;
-  }
-  if (newTrophies.length > 0) {
-    const trophy = newTrophies[newTrophies.length - 1];
-    setTimeout(() => Confetti.trophyUnlock(document.body, trophy), nextDelay);
+    setTimeout(() => Confetti.levelUp(document.body, newLevel), 1200);
   }
 
   render();
@@ -531,9 +517,39 @@ function formatDate(ts) {
 
 function applyLevelsFromQR(data) {
   if (!data.items || !Array.isArray(data.items)) { showToast('称号データが不正です','error'); return; }
-  childData.levels = data.items.map(it => ({ level: it.l, threshold: it.th, title: it.ti }));
+
+  // 既存の称号（なければデフォルトから開始）
+  const existing = (childData.levels && childData.levels.length > 0)
+    ? [...childData.levels]
+    : JSON.parse(JSON.stringify(Store.DEFAULT_LEVELS));
+
+  let added = 0, updated = 0;
+  data.items.forEach(it => {
+    const icon = it.ic || '🏆';
+    const idx = existing.findIndex(lv => lv.threshold === it.th);
+    if (idx >= 0) {
+      // 同じ金額の称号が既にある → 上書き
+      existing[idx].title = it.ti;
+      existing[idx].icon = icon;
+      updated++;
+    } else {
+      // 新規追加
+      existing.push({ level: 0, threshold: it.th, title: it.ti, icon });
+      added++;
+    }
+  });
+
+  // 金額順にソート → レベル番号を振り直す
+  existing.sort((a, b) => a.threshold - b.threshold);
+  existing.forEach((lv, i) => lv.level = i + 1);
+
+  childData.levels = existing;
   Store.setChildData(childData);
-  showToast(`称号を${data.items.length}件同期しました！`,'success');
+
+  const parts = [];
+  if (added > 0) parts.push(`${added}件追加`);
+  if (updated > 0) parts.push(`${updated}件更新`);
+  showToast(`称号を同期しました！（${parts.join('・')}）`, 'success');
   render();
 }
 

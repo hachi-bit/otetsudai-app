@@ -244,6 +244,7 @@ body {
 .levelup-content {
   text-align: center;
   color: #fff;
+  position: relative;
 }
 
 .levelup-star {

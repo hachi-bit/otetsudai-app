@@ -197,6 +197,7 @@ function renderSettings() {
   lvl.innerHTML = levels.map((lv,i) => `
     <div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
       <input type="checkbox" id="lvchk${i}" style="width:20px;height:20px;accent-color:var(--p-primary);flex-shrink:0;">
+      <span style="font-size:1.3rem;">${lv.icon || '🏆'}</span>
       <span style="font-size:1.1rem;font-weight:800;color:var(--p-primary);min-width:32px;">Lv${lv.level}</span>
       <span style="flex:1;font-weight:600;">${esc(lv.title)}</span>
       <span style="font-size:0.85rem;color:var(--p-text-sub);">${lv.threshold}円〜</span>
@@ -412,6 +413,7 @@ function onImportChoresScanned(data){closeImportChoresModal();if(data.t!=='chore
 function openAddLevelModal() {
   document.getElementById('editLevelTitle').textContent = '🏆 称号を追加';
   document.getElementById('editLevelIndex').value = '';
+  document.getElementById('editLevelIcon').value = '🏆';
   document.getElementById('editLevelThreshold').value = '';
   document.getElementById('editLevelTitle2').value = '';
   document.getElementById('editLevelModal').classList.add('active');
@@ -420,19 +422,21 @@ function openEditLevelModal(i) {
   const lv = parentData.levels[i];
   document.getElementById('editLevelTitle').textContent = '🏆 称号を編集';
   document.getElementById('editLevelIndex').value = i;
+  document.getElementById('editLevelIcon').value = lv.icon || '🏆';
   document.getElementById('editLevelThreshold').value = lv.threshold;
   document.getElementById('editLevelTitle2').value = lv.title;
   document.getElementById('editLevelModal').classList.add('active');
 }
 function closeLevelModal() { document.getElementById('editLevelModal').classList.remove('active'); }
 function saveLevel() {
+  const icon = document.getElementById('editLevelIcon').value.trim() || '🏆';
   const threshold = parseInt(document.getElementById('editLevelThreshold').value);
   const title = document.getElementById('editLevelTitle2').value.trim();
   if (isNaN(threshold) || threshold < 0) { toast('金額を正しく入力してください','error'); return; }
   if (!title) { toast('称号名を入力してください','error'); return; }
   const idx = document.getElementById('editLevelIndex').value;
-  if (idx === '') { parentData.levels.push({ level:0, threshold, title }); toast(`${title}を追加`,'success'); }
-  else { parentData.levels[parseInt(idx)].threshold = threshold; parentData.levels[parseInt(idx)].title = title; toast(`${title}を更新`,'success'); }
+  if (idx === '') { parentData.levels.push({ level:0, threshold, title, icon }); toast(`${icon} ${title}を追加`,'success'); }
+  else { parentData.levels[parseInt(idx)].threshold = threshold; parentData.levels[parseInt(idx)].title = title; parentData.levels[parseInt(idx)].icon = icon; toast(`${icon} ${title}を更新`,'success'); }
   parentData.levels.sort((a,b) => a.threshold - b.threshold);
   parentData.levels.forEach((lv,j) => lv.level = j + 1);
   Store.setParentData(parentData); closeLevelModal(); render();
@@ -440,7 +444,7 @@ function saveLevel() {
 function removeLevel(i) {
   if (parentData.levels.length <= 1) { toast('最低1つは必要です','error'); return; }
   const lv = parentData.levels[i];
-  if (!confirm(`Lv${lv.level} ${lv.title} を削除？`)) return;
+  if (!confirm(`Lv${lv.level} ${lv.icon||''} ${lv.title} を削除？`)) return;
   parentData.levels.splice(i,1);
   parentData.levels.forEach((lv,j) => lv.level = j + 1);
   Store.setParentData(parentData); render();
@@ -452,8 +456,7 @@ function syncLevelsToChild() {
     if (document.getElementById('lvchk'+i)?.checked) checked.push(lv);
   });
   if (!checked.length) { toast('同期する称号を選んでください','error'); return; }
-  // level番号を振り直す
-  const items = checked.map((lv,i) => ({l:i+1, th:lv.threshold, ti:lv.title}));
+  const items = checked.map(lv => ({th:lv.threshold, ti:lv.title, ic:lv.icon||'🏆'}));
   const qr = { t:'levels', items };
   document.getElementById('syncLevelsModal').classList.add('active');
   setTimeout(() => QR.generate('syncLevelsQRDisplay', qr, 220), 100);

@@ -70,12 +70,14 @@ const Confetti = {
    * レベルアップ演出（2段階：集結→爆発）
    */
   levelUp(container, newLevel) {
+    const icon = newLevel.icon || '⭐';
     const overlay = document.createElement('div');
     overlay.className = 'levelup-overlay';
     overlay.innerHTML = `
       <div class="levelup-content">
-        <div class="levelup-star" id="levelupStar">⭐</div>
-        <div class="levelup-text">レベルアップ！</div>
+        <div class="trophy-glow"></div>
+        <div class="levelup-star" id="levelupStar">${icon}</div>
+        <div class="levelup-text">称号かくとく！</div>
         <div class="levelup-level" id="levelupLevelNum">Lv.${newLevel.level}</div>
         <div class="levelup-title">${newLevel.title}</div>
       </div>
@@ -116,41 +118,16 @@ const Confetti = {
       if (star) {
         star.style.animation = 'levelupStarBounce 0.6s cubic-bezier(0.34,1.56,0.64,1)';
       }
+      this._sparkleRing(container);
       this.burst(container, 300);
     }, 500);
 
-    this._playChime();
-
-    setTimeout(() => {
-      overlay.classList.add('fade-out');
-      setTimeout(() => overlay.remove(), 500);
-    }, 2800);
-  },
-
-  /**
-   * トロフィー獲得演出（専用モーダル）
-   */
-  trophyUnlock(container, trophy) {
-    const overlay = document.createElement('div');
-    overlay.className = 'trophy-overlay';
-    overlay.innerHTML = `
-      <div class="trophy-unlock-content">
-        <div class="trophy-glow"></div>
-        <div class="trophy-unlock-icon">${trophy.icon}</div>
-        <div class="trophy-unlock-text">トロフィーかくとく！</div>
-        <div class="trophy-unlock-name" style="color:${trophy.color};">${trophy.name}</div>
-        <div class="trophy-unlock-threshold">累計 ${trophy.threshold}円 たっせい</div>
-      </div>
-    `;
-    container.appendChild(overlay);
-
-    setTimeout(() => this._sparkleRing(container), 150);
     this._playChime(true);
 
     setTimeout(() => {
       overlay.classList.add('fade-out');
       setTimeout(() => overlay.remove(), 500);
-    }, 2600);
+    }, 2800);
   },
 
   _sparkleRing(container) {
