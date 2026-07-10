@@ -183,6 +183,9 @@ function renderSettings() {
         <button class="btn btn-secondary" style="flex:1;padding:8px;font-size:0.8rem;" onclick="openRestoreChildModal(${i})">🔄 復元</button>
         <button class="btn btn-danger" style="padding:8px;font-size:0.8rem;" onclick="deleteChild(${i})">削除</button>
       </div>
+      <div style="width:100%;margin-top:4px;">
+        <button class="btn btn-secondary btn-block" style="padding:8px;font-size:0.8rem;" onclick="previewChildView(${i})">👀 こどもの見え方を確認</button>
+      </div>
     </div>`).join(''); }
   const chl = document.getElementById('settingsChoreList');
   if (!parentData.chores.length) { chl.innerHTML = '<p style="color:var(--p-text-sub);font-size:0.9rem;">テンプレートなし</p>'; }
@@ -372,6 +375,41 @@ function showRegQR(cid,n,a,ft){document.getElementById('addChildModal').classLis
   setTimeout(()=>QR.generate('childRegQRDisplay',{t:'reg',pid:parentData.parentId,pn:parentData.parentName,cid,n,a,ft},200),100);}
 
 // ===== 共有・復元 =====
+// ===== こどもの見え方プレビュー =====
+function previewChildView(i) {
+  const ch = parentData.children[i];
+  if (!ch) return;
+
+  // 親が持つ送信履歴（sentHistory）を子ども目線の履歴フォーマットに変換
+  const history = (ch.sentHistory || []).map(h => ({
+    chore: h.chore,
+    icon: h.icon,
+    amount: h.amount,
+    timestamp: h.timestamp,
+    seq: h.seq,
+    parentId: parentData.parentId,
+    parentName: parentData.parentName,
+  }));
+
+  const snapshot = {
+    n: ch.name,
+    a: ch.avatar,
+    bal: ch.expectedBalance,
+    te: ch.expectedBalance, // 累計 = 送金合計として概算（子側の実受取額とズレる場合あり）
+    h: history,
+    pr: [{ pid: parentData.parentId, name: parentData.parentName }],
+    lv: parentData.levels || null,
+  };
+
+  const qrData = { t: 'preview', snapshot };
+  const jsonStr = JSON.stringify(qrData);
+  const b64 = QR.toBase64(jsonStr);
+  const baseUrl = window.location.href.replace(/[^/]*(\?.*)?(\#.*)?$/, '');
+  const url = `${baseUrl}child.html#${b64}`;
+
+  window.open(url, '_blank');
+}
+
 function openShareChildModal(i){const ch=parentData.children[i];document.getElementById('shareChildInfo').textContent=`${ch.avatar} ${ch.name}`;
   document.getElementById('shareChildModal').classList.add('active');setTimeout(()=>QR.generate('shareChildQRDisplay',{t:'share',cid:ch.childId,n:ch.name,a:ch.avatar,ft:ch.familyToken},200),100);}
 function closeShareChildModal(){document.getElementById('shareChildModal').classList.remove('active');document.getElementById('shareChildQRDisplay').innerHTML='';}

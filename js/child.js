@@ -4,7 +4,17 @@ let childData = null;
 let setupScanner = null;
 let rewardScanner = null;
 let addParentScanner = null;
+let isPreviewMode = false; // 親からのプレビュー閲覧中かどうか
 const AVATARS = ['🦁','🐱','🐶','🐰','🦊','🐼','🐸','🐧','🦄','🐲','🌟','🚀'];
+
+/**
+ * localStorageへの書き込みをラップ。
+ * プレビューモード中は絶対に書き込まない（親の端末データを守るため）。
+ */
+function saveChildData() {
+  if (isPreviewMode) return; // プレビュー中は保存しない
+  Store.setChildData(childData);
+}
 
 // ========== 初期化 ==========
 document.addEventListener('DOMContentLoaded', () => {
@@ -37,6 +47,12 @@ function processUrlHash() {
 // ========== URL経由のQRデータ処理 ==========
 function handleIncomingQR(data) {
   if (!data || !data.t) { normalBoot(); return; }
+
+  // プレビューモード（親からの閲覧専用アクセス）
+  if (data.t === 'preview') {
+    enterPreviewMode(data);
+    return;
+  }
 
   // 登録・復元QR
   if (data.t === 'reg' || data.t === 'restore') {
@@ -80,6 +96,65 @@ function handleIncomingQR(data) {
 function normalBoot() {
   if (!childData) showSetup();
   else showApp();
+}
+
+// ========== プレビューモード（親専用・閲覧のみ） ==========
+function enterPreviewMode(data) {
+  if (!data.snapshot) { document.body.innerHTML = '<p style="padding:40px;text-align:center;">プレビューデータが不正です</p>'; return; }
+
+  isPreviewMode = true;
+
+  // 本物のchildDataには絶対触らず、メモリ上のみでプレビュー用データを構築
+  childData = {
+    role: 'child',
+    childId: 'preview',
+    name: data.snapshot.n,
+    avatar: data.snapshot.a,
+    balance: data.snapshot.bal,
+    totalEarned: data.snapshot.te,
+    history: data.snapshot.h || [],
+    parents: data.snapshot.pr || [],
+    levels: data.snapshot.lv || null,
+    scannedSeqs: [],
+  };
+
+  showApp();
+  showPreviewBanner();
+  disablePreviewActions();
+}
+
+function showPreviewBanner() {
+  const banner = document.createElement('div');
+  banner.style.cssText = `
+    position: fixed; top: 0; left: 0; right: 0; z-index: 5000;
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+    color: #1e1650; font-weight: 800; font-size: 0.85rem;
+    text-align: center; padding: 10px 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  `;
+  banner.innerHTML = `👀 プレビューモード（閲覧のみ・保存されません）`;
+  document.body.prepend(banner);
+  // ヘッダーが隠れないよう本体を少し下にずらす
+  const header = document.querySelector('.app-header');
+  if (header) header.style.marginTop = '38px';
+}
+
+/**
+ * プレビュー中は書き込みを伴う操作を全部無効化する。
+ * ボタンを押しても何も起きないようにし、誤操作でのデータ破損を防ぐ。
+ */
+function disablePreviewActions() {
+  const blockedIds = [
+    'tabSettings' // 設定タブ（削除・アイコン変更等があるため）
+  ];
+  // QR受け取り・親追加・称号スキャン・アイコン変更などのボタンを無効化
+  document.querySelectorAll('button, [onclick]').forEach(el => {
+    const attr = el.getAttribute('onclick') || '';
+    if (/openScanRewardModal|openAddParentScan|openLevelsScan|changeAvatar|applyCustomEmoji|confirmReset/.test(attr)) {
+      el.style.opacity = '0.4';
+      el.style.pointerEvents = 'none';
+    }
+  });
 }
 
 // ========== セットアップ（親のQRをスキャンして初回登録） ==========
@@ -127,7 +202,7 @@ function onSetupScanned(data) {
     restoredAt: isRestore ? Date.now() : null,
     levels: JSON.parse(JSON.stringify(Store.DEFAULT_LEVELS)),
   };
-  Store.setChildData(childData);
+  saveChildData();
 
   const msg = data.t === 'restore'
     ? `${data.a || '⭐'} ${data.n} を復元しました！（残高: ${balance}円）`
@@ -291,7 +366,7 @@ function renderSettings() {
 
 function changeAvatar(avatar) {
   childData.avatar = avatar;
-  Store.setChildData(childData);
+  saveChildData();
   render();
   showToast(`アイコンを ${avatar} にへんこうしました！`, 'success');
 }
@@ -302,7 +377,7 @@ function applyCustomEmoji() {
   const emoji = input.value.trim();
   if (!emoji) { showToast('えもじを入力してね','error'); return; }
   childData.avatar = emoji;
-  Store.setChildData(childData);
+  saveChildData();
   render();
   showToast(`アイコンを ${emoji} にへんこうしました！`, 'success');
 }
@@ -370,7 +445,7 @@ function onAddParentScanned(data) {
     showToast(`${data.pn || '親'}を追加しました！`, 'success');
   }
 
-  Store.setChildData(childData);
+  saveChildData();
   render();
 }
 
@@ -456,7 +531,7 @@ async function processRewardItems(items, pid, pn) {
     childData.scannedSeqs.push(`${pid}_${it.seq}`);
   });
 
-  Store.setChildData(childData);
+  saveChildData();
 
   const newLevel = Store.calcLevel(childData.totalEarned, getChildLevels());
   const didLevelUp = newLevel.level > prevLevel.level;
@@ -558,7 +633,7 @@ function applyLevelsFromQR(data) {
   existing.forEach((lv, i) => lv.level = i + 1);
 
   childData.levels = existing;
-  Store.setChildData(childData);
+  saveChildData();
 
   const parts = [];
   if (added > 0) parts.push(`${added}件追加`);
@@ -594,7 +669,7 @@ function getChildLevels() {
   // 旧データ（levels: null）の移行対応
   if (childData && (!childData.levels || childData.levels.length === 0)) {
     childData.levels = JSON.parse(JSON.stringify(Store.DEFAULT_LEVELS));
-    Store.setChildData(childData);
+    saveChildData();
   }
   return childData ? childData.levels : null;
 }
