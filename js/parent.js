@@ -91,7 +91,10 @@ function renderPending() {
     <div class="pending-item">
       <input type="checkbox" id="pchk${i}" checked onchange="updatePendingCount()">
       <span style="font-size:1.3rem;">${p.icon}</span>
-      <div class="item-info"><div style="font-weight:600;">${esc(p.chore)}</div></div>
+      <div class="item-info">
+        <div style="font-weight:600;">${esc(p.chore)}</div>
+        <div style="font-size:0.75rem;color:var(--p-text-sub);">${fmtDate(p.addedAt)}</div>
+      </div>
       <div class="item-amount">${p.amount}円</div>
       <button class="item-remove" onclick="removePending(${i})">✕</button>
     </div>`).join('');
